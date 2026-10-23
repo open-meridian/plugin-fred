@@ -1,0 +1,6 @@
+{
+  "file": "fred-20261023.json.gz",
+  "recorded_on": "2026-10-23",
+  "last_day": "2026-10-22",
+  "about": "FRED's answers for every series this version carries, in the FRED API's JSON shapes (fred/series, fred/series/tags, fred/series/observations): each series' observations from 3 August to 22 October 2026, and the nominal curve's from 25 July to 3 August 2001, around the 1-month's first day, 31 July 2001. The values, titles, units, observation ranges, update times (to the minute) and copyright tags are FRED's own, read on 23 October 2026 from its keyless public downloads (fredgraph.csv and each series' page), since no API key is handled in building the plugin; each answer is laid out as the API answers it, a value FRED states none for as \".\", and every tag but the copyright class's (group cc) is listed under group gen."
+}

@@ -1,6 +1,15 @@
+{#- Connection, at admin: the data role's (meridian/roles/data/connection.html),
+    with FRED's nuance at its blocks only -- the head's status; "Sources"
+    (the spec's §5) as a row of "Key", its detail one line per publisher's
+    rates FRED carries and how many series are kept current, so the page
+    fits one screen. Whether the key is set is said; its value
+    never is. No rate: rates are the reading roles'. -#}
 {% extends "meridian/roles/data/connection.html" %}
-{#- The vendor's nuance, at the role's blocks only: here, a section naming
-    the vendor after the common ones. -#}
-{% block vendor_sections %}
-<section class="panel"><h2>Reference vendor</h2><p class="muted">A stand-in vendor serving daily candles; replace it with your own.</p></section>
-{% endblock %}
+{% import "meridian/kit.html" as kit %}
+{% block status %}{{ kit.status({"state": data.state, "label": data.said, "detail": detail, "at": data.checked_at, "at_label": "Last checked"}) }}{% endblock %}
+{% block vendor_rows %}{% if section == "Key" %}
+<tr data-sources><th scope="row">Sources</th><td>{{ data.sources|length }}: {% for s in data.sources %}{{ s.source }} {{ s.state|lower }}{% if not loop.last %}; {% endif %}{% endfor %}</td><td class="more"><details class="row-detail" name="facts"><summary aria-label="Details of Sources">…</summary><div class="row-detail-pop"><h3>Sources</h3><table class="one-line"><thead><tr><th>Source</th><th>State</th><th>Last release</th><th class="num">Calls</th></tr></thead><tbody>
+{% for s in data.sources %}<tr data-source="{{ s.source }}"><td>{{ s.source }}</td><td>{{ s.state }}{% if s.last_error %} <span class="hint">{{ s.last_error }}</span>{% endif %}</td><td>{{ (s.last_release|day) if s.last_release else "Not yet" }}</td><td class="num">{{ s.calls }}</td></tr>
+{% endfor %}</tbody></table><p class="hint">Each a publisher's rates through FRED ({{ data.source }}). Kept current: {{ (data.kept_current ~ " series") if data.kept_current else "none; each series is fetched when wanted" }}. Next expected: not known, since FRED's datasets declare no calendar. Answers kept: {{ data.responses_kept }}{% if data.kept_for %}, {{ data.kept_for }}{% endif %}.</p></div></details></td></tr>
+{% endif %}{% endblock %}
+

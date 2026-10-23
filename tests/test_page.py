@@ -1,120 +1,170 @@
-"""The pages, against a stand-in for the sidecar.
-
-`meridian plugin check --run-tests` runs these, and so does the plugin's CI.
-None needs a deployment. `PageClient` asks the pages as the sidecar forwards
-a request, for a session opened by Manage (`admin`), Open (`write`) or View
-(`read`), and calls each page's read tool as the deployment's MCP surface
-would.
-
-Replace these as you replace the pages: at least each page rendered at each
-level, its common sections in the role's order, and each tool's answer.
-"""
+"""The two pages under Manage, and their read tools: what each shows, to
+whom, that a tool answers what its page shows, and that the key's value is
+never shown."""
 
 from __future__ import annotations
 
-import meridian
-from meridian.roles import data
+import asyncio
+from pathlib import Path
+
+import pytest
 from meridian.testing import PageClient
 
-from fred.convert import Converter
-from fred.page import pages, use
-from fred.vendor import Vendor
+from fred import page as page_module
+from fred.api import LiveApi
+from fred.page import CONNECTION, DATASETS, figures, hold, pages
+from fred.series import CARRIED, ESTR, SOFR, SUBJECTS
+
+from conftest import CITED, PUBLIC, feed, lake, record_id, want
+
+KEY = "abcdef0123456789abcdef0123456789"
 
 
-class Sidecar:
-    """Who the plugin was launched as: what its pages reach of it."""
+@pytest.fixture
+def client(tmp_path: Path) -> PageClient:
+    work = feed(tmp_path, kept=["SOFR", "DGS10", "SOFRINDEX"])
 
-    identity = meridian.Identity("reference-1", roles=("data",))
-    grants = meridian.Grants()
+    async def run() -> None:
+        await work.check()
+        await work.on_want(want("w-0924", [record_id(SOFR)], day="2026-09-24", dataset=CITED))
+        await work.on_want(want("w-standing", [record_id(ESTR)], standing=True))
 
-
-def client() -> PageClient:
-    return PageClient(pages, Sidecar())
-
-
-def running(vendor: Vendor | None = None) -> Converter:
-    converter = Converter(Sidecar(), vendor or Vendor())  # type: ignore[arg-type]
-    use(converter)
-    return converter
+    asyncio.run(run())
+    hold(work)
+    return PageClient(pages)
 
 
-def in_order(page: str, *said: str) -> None:
-    at = [page.find(each) for each in said]
-    assert -1 not in at and at == sorted(at), dict(zip(said, at, strict=True))
-
-
-def test_each_page_is_served_to_an_admin_of_the_plugin_alone() -> None:
-    running()
-    served = {(r.page.path, r.level): r.response.status for r in client().every_page()}
+def test_each_page_is_managed_alone(client: PageClient) -> None:
+    served = {(r.page.path, r.level): r.response.status for r in client.every_page()}
     assert served == {
-        ("/", "admin"): 200,
-        ("/", "write"): 403,
-        ("/", "read"): 403,
-        ("/datasets", "admin"): 200,
-        ("/datasets", "write"): 403,
-        ("/datasets", "read"): 403,
+        (CONNECTION, "admin"): 200,
+        (CONNECTION, "write"): 403,
+        (CONNECTION, "read"): 403,
+        (DATASETS, "admin"): 200,
+        (DATASETS, "write"): 403,
+        (DATASETS, "read"): 403,
     }
+    # No rate on any page: rates are the reading roles' to show.
+    client.assert_no_account_data("3.90", "5.13", "1.26384966", "2.442")
 
 
-def test_the_connection_page_draws_the_roles_sections_in_order() -> None:
-    vendor = Vendor(calls=3)
-    running(vendor)
-    page = client().get("/", "admin").text
-    in_order(
-        page,
-        "<h2>Key</h2>",
-        "No key needed",
-        "<h2>Limits and use</h2>",
-        "60 a minute",
-        "<h2>Stream</h2>",
-        "Does not stream",
-        "Reference vendor",
+def test_connection_says_how_fred_is_reached(client: PageClient) -> None:
+    text = client.get(CONNECTION, "admin").text
+    assert text.index("<h2>Key</h2>") < text.index("<h2>Limits and use</h2>")
+    assert text.index("<h2>Key</h2>") < text.index("<tr data-sources>") < text.index("<h2>Limits")
+    assert 'state="ok"' in text and "Sample data" in text
+    assert "FRED API key: not set" in text and "Does not stream" in text
+    assert "New York Fed reference rates" in text and "Treasury par yield curves (H.15)" in text
+    assert "Thu 22 Oct 2026" in text  # the latest day read
+    assert "Kept current: 4 series" in text  # the three listed, and €STR's standing want
+    assert 'href="/.meridian/ui/0.13.0/meridian.css"' in text
+
+
+def test_datasets_lists_the_three_datasets_records_and_series(client: PageClient) -> None:
+    text = client.get(DATASETS, "admin").text
+    assert text.index("<h2>Served</h2>") < text.index("<h2>Wants</h2>")
+    assert text.index('<th class="wide-only">Lag</th>') < text.index("Records <span")
+    assert text.index("Records <span") < text.index("FRED series <span")
+    for dataset in ("fred:fred_public", "fred:fred_cited", "fred:fred_restricted"):
+        assert dataset in text
+    assert "served, not kept; no derived use; display" in text
+    # The first tab, Records; then FRED series.
+    assert text.count("<tr data-record=") == len(SUBJECTS) and "<tr data-series=" not in text
+    text = client.get(DATASETS, "admin", view="series").text
+    assert text.count("<tr data-series=") == len(CARRIED) and "<tr data-record=" not in text
+    assert "Copyrighted: citation required" in text and "Public domain: citation requested" in text
+    terms = client.get(DATASETS, "admin", view="terms").text
+    assert "not endorsed or certified by the Federal Reserve Bank of St. Louis" in terms
+    assert "<om-pager>" in text and "Kept current" in text
+
+
+def test_the_tools_answer_what_the_pages_show(client: PageClient) -> None:
+    assert {t.name for t in pages.tools} == {"read_connection", "read_datasets"}
+    connection = client.call_tool("read_connection")
+    assert connection.outcome == "unchanged", connection.json
+    data = connection.data
+    assert data["mode"] == "Sample data" and data["sessions"] is None
+    assert data["credentials"] == [{"label": "FRED API key", "set": False}]
+    assert data["kept_current"] == 4
+    sources = {s["source"]: s for s in data["sources"]}
+    assert sources["New York Fed reference rates"]["last_release"] == "2026-10-22"
+    assert sources["FOMC target range"]["state"] == "Not read yet"
+    read = client.call_tool("read_datasets").data
+    assert [s["dataset"] for s in read["served"]] == [
+        "fred:fred_public", "fred:fred_cited", "fred:fred_restricted"
+    ]  # fmt: skip
+    records = {r["name"]: r for r in read["records"]}
+    assert records["nyfed:SOFR"]["instrument_id"] == record_id(SOFR)
+    assert records["ustreasury:Daily Treasury Par Yield Curve Rates"]["series"][0] == "DGS1MO"
+    series = {s["series_id"]: s for s in read["series"]}
+    assert series["SOFR"]["dataset"] == CITED and series["DGS10"]["dataset"] == PUBLIC
+    assert series["SOFR"]["kept_current"] and not series["DFEDTARL"]["kept_current"]
+    assert series["DGS10"]["title"].startswith(
+        "Market Yield on U.S. Treasury Securities at 10-Year"
     )
-    vendor.failed = "the vendor answered 503"
-    assert "the vendor answered 503" in client().get("/", "admin").text
+    page = client.get(DATASETS, "admin").text
+    assert all(r["instrument_id"] in page for r in read["records"] if r["instrument_id"])
+    assert read["wants"][0]["want_id"] == "w-standing"
+    assert read["wants"][0]["state"] == "Kept current"
+    lags = {lag["dataset"]: lag for lag in read["lag"]}
+    # SOFR for the 22nd, which FRED had at 07:02 Central on the 23rd: 32 h 02 m.
+    assert lags[CITED]["rates"] >= 1 and lags[CITED]["longest_seconds"] == 32 * 3600 + 2 * 60
 
 
-def test_an_agent_reads_the_connection_through_its_tool() -> None:
-    running(Vendor(calls=3))
-    answered = client().call_tool("read_connection")
-    assert answered.outcome == "unchanged"
-    assert answered.data["mode"] == "Live"
-    assert answered.data["calls"] == 3
-    assert answered.data["limit"] == "60 a minute"
-    assert answered.data["sessions"] is None
+def test_the_series_are_searched(client: PageClient) -> None:
+    text = client.get(DATASETS, "admin", q="sofr average").text
+    assert 'value="sofr average"' in text
+    found = {s.series_id for s in CARRIED if f'data-series="{s.series_id}"' in text}
+    assert found == {"SOFR30DAYAVG", "SOFR90DAYAVG", "SOFR180DAYAVG"}
+    assert "No series matches" in client.get(DATASETS, "admin", q="drachma").text
+    assert len(client.call_tool("read_datasets").data["series"]) == len(CARRIED)
 
 
-def test_the_datasets_page_says_whether_each_dataset_is_licensed() -> None:
-    converter = running()
-    page = client().get("/datasets", "admin").text
-    in_order(
-        page,
-        "No wants yet",
-        "<h2>Served</h2>",
-        "<code>reference-1:daily</code>",
-        "Not licensed yet",
-        "<h2>Wants</h2>",
-        "<h2>Subjects</h2>",
-    )
-    converter.wants.licensed = frozenset({"reference-1:daily"})
-    converter.wants.heard.appendleft(
-        data.Heard("WNT-1", "reference-1:daily", "latest", 1, 0, 0, True, 0)
-    )
-    converter.wants.standing["WNT-1"] = data.Standing(
-        "WNT-1", "reference-1:daily", "meridian.v1.Price", ("LCL-1",), (), 0
-    )
-    answered = client().call_tool("read_datasets")
-    assert answered.data["served"][0]["licensed"] is True
-    assert answered.data["served"][0]["data"] == "Price, Bar"
-    assert answered.data["wants"] == [
-        {
-            "dataset": "reference-1:daily",
-            "asked": "latest",
-            "subjects": 1,
-            "recorded": 0,
-            "declined": 0,
-            "state": "Kept current",
-            "want_id": "WNT-1",
-            "kept_current": True,
-        }
+def test_no_key_says_so_and_the_key_is_never_shown(tmp_path: Path) -> None:
+    work = feed(tmp_path, lake(), api=LiveApi(""))
+    hold(work)
+    text = PageClient(pages).get(CONNECTION, "admin").text
+    assert "No key" in text and "Enter it in" in text
+    keyed = feed(tmp_path, lake(), api=LiveApi(KEY), keyed=True)
+    hold(keyed)
+    client = PageClient(pages)
+    for path in (CONNECTION, DATASETS):
+        assert KEY not in client.get(path, "admin").text
+    assert client.call_tool("read_connection").data["credentials"] == [
+        {"label": "FRED API key", "set": True}
     ]
+    assert KEY not in str(client.call_tool("read_connection").json)
+
+
+def test_before_the_first_check() -> None:
+    page_module._held.clear()
+    text = PageClient(pages).get(CONNECTION, "admin").text
+    assert "No key" in text
+    assert "Not resolved yet" in PageClient(pages).get(DATASETS, "admin").text
+
+
+def test_fred_not_reached(tmp_path: Path) -> None:
+    work = feed(tmp_path, kept=["SOFR"])
+    work.status.error = "SOFR: https://api.stlouisfed.org/fred/series?series_id=SOFR: URLError"
+    hold(work)
+    text = PageClient(pages).get(CONNECTION, "admin").text
+    assert 'state="error"' in text and "Not answering" in text and "URLError" in text
+
+
+def test_a_licensed_dataset_is_said_so(client: PageClient) -> None:
+    page_module._held["feed"].wants.licensed = frozenset({PUBLIC})
+    served = client.call_tool("read_datasets").data["served"]
+    assert [s["licensed"] for s in served] == [True, False, False]
+
+
+def test_the_figures_are_the_data_roles_in_its_order(client: PageClient) -> None:
+    work = page_module._held["feed"]
+    said = figures(work.status, work)
+    assert [f.label for f in said] == [
+        "Connection",
+        "Entitled at the vendor",
+        "Stream",
+        "Last recorded",
+    ]
+    assert said[0].value == "Sample data" and said[2].value == "Does not stream"
+    assert said[1].value == "3 of 3 datasets"
