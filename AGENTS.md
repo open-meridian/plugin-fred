@@ -41,9 +41,11 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
   Datasets, each a read tool (`read_connection`, `read_datasets`) on the
   deployment's MCP answering the role's common fields,
   `meridian.roles.data`'s records extended with FRED's (Sources; Lag,
-  Records and FRED series). The templates extend the role's and add FRED's
-  nuance at its blocks alone: never rename, reorder or drop a common
-  section, row, column or label.
+  Records, FRED series and Terms). The templates extend the role's and draw
+  its content in its order and words, only so each page fits one screen:
+  Datasets' sections as tabs (`?view=`), and Connection's Sessions shown
+  once there is a session. Never rename or reorder a common section, row,
+  column or label.
 
 ## The rules it keeps
 
@@ -80,7 +82,7 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
 ## Checking it locally
 
     make ci-local                     # lint, tests, plugin check, image: the pre-push gate
-    make preview SHOTS=/tmp/shots     # each page in a browser with the kit, at 375, 582 and 1280 px
+    make preview SHOTS=/tmp/shots     # each page in a browser with the kit, at 375, 582 and 1280 px, on its own and framed
 
 Every gate runs in a container: the host needs only Docker.
 

@@ -1,15 +1,50 @@
 {#- Connection, at admin: the data role's (meridian/roles/data/connection.html),
-    with FRED's nuance at its blocks only -- the head's status; "Sources"
-    (the spec's §5) as a row of "Key", its detail one line per publisher's
-    rates FRED carries and how many series are kept current, so the page
-    fits one screen. Whether the key is set is said; its value
-    never is. No rate: rates are the reading roles'. -#}
+    its notices and sections in its order and words, with FRED's nuance: the
+    head's status; "Sources" (the spec's §5) as a row of "Key", its detail
+    one line per publisher's rates FRED carries and how many series are kept
+    current, shown once FRED is asked (a key set, or sample data); and
+    "Sessions" shown only once the plugin has a session, so the page fits one
+    screen -- FRED is polled and has none. The role's content is drawn here
+    rather than at its blocks for that one condition; nothing is renamed or
+    reordered. Whether the key is set is said; its value never is. No rate:
+    rates are the reading roles'. -#}
 {% extends "meridian/roles/data/connection.html" %}
 {% import "meridian/kit.html" as kit %}
+{% import "meridian/roles/_rows.html" as om %}
 {% block status %}{{ kit.status({"state": data.state, "label": data.said, "detail": detail, "at": data.checked_at, "at_label": "Last checked"}) }}{% endblock %}
-{% block vendor_rows %}{% if section == "Key" %}
+{% block content %}
+{% if data.mode == "No key" %}
+{{ om.next_step("No key yet", "Enter it in", "settings", "Settings") }}
+{% elif data.mode == "Sample data" %}
+<div class="notice info" role="status">Sample data: the plugin answers from recorded responses; the vendor is not called.</div>
+{% endif %}
+{% if data.last_error %}<div class="notice bad" role="alert">{{ data.last_error }}</div>{% endif %}
+{% set sections = ["Key", "Limits and use", "Stream"] + (["Sessions"] if data.session_latency else []) %}
+{% for section in sections %}
+<section class="panel">
+<h2>{{ section }}</h2>
+<table class="one-line"><tbody>
+{% if section == "Key" %}
+{{ om.row("Mode", data.mode, {"Live": "The vendor's live service.", "Sample data": "Recorded responses; the vendor is not called.", "No key": "Nothing is read until a key is entered in Settings."}.get(data.mode, "")) }}
+{% set key %}{% for each in data.credentials %}{{ each.label }}: {{ "set" if each.set else "not set" }}{% if not loop.last %}; {% endif %}{% endfor %}{% endset %}
+{{ om.row("Key", key|trim or "No key needed") }}
+{{ om.row("Entitled at the vendor", data.entitled_at_vendor or "Not reported") }}
+{% if data.mode != "No key" %}
 <tr data-sources><th scope="row">Sources</th><td>{{ data.sources|length }}: {% for s in data.sources %}{{ s.source }} {{ s.state|lower }}{% if not loop.last %}; {% endif %}{% endfor %}</td><td class="more"><details class="row-detail" name="facts"><summary aria-label="Details of Sources">…</summary><div class="row-detail-pop"><h3>Sources</h3><table class="one-line"><thead><tr><th>Source</th><th>State</th><th>Last release</th><th class="num">Calls</th></tr></thead><tbody>
 {% for s in data.sources %}<tr data-source="{{ s.source }}"><td>{{ s.source }}</td><td>{{ s.state }}{% if s.last_error %} <span class="hint">{{ s.last_error }}</span>{% endif %}</td><td>{{ (s.last_release|day) if s.last_release else "Not yet" }}</td><td class="num">{{ s.calls }}</td></tr>
 {% endfor %}</tbody></table><p class="hint">Each a publisher's rates through FRED ({{ data.source }}). Kept current: {{ (data.kept_current ~ " series") if data.kept_current else "none; each series is fetched when wanted" }}. Next expected: not known, since FRED's datasets declare no calendar. Answers kept: {{ data.responses_kept }}{% if data.kept_for %}, {{ data.kept_for }}{% endif %}.</p></div></details></td></tr>
-{% endif %}{% endblock %}
-
+{% endif %}
+{% elif section == "Limits and use" %}
+{{ om.row("Limit", data.limit or "Not reported") }}
+{{ om.row("Calls", data.calls, (data.rate_limited ~ " rate-limited and waited out") if data.rate_limited else "") }}
+{{ om.row("Last call", data.last_call_at or "None yet") }}
+{{ om.row("Last error", data.last_error or "None") }}
+{% elif section == "Sessions" %}
+{{ om.session_rows(data.session_latency) }}
+{% else %}
+{{ om.row("Streaming", "Does not stream") }}
+{% endif %}
+</tbody></table>
+</section>
+{% endfor %}
+{% endblock %}

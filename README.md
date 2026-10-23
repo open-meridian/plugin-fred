@@ -54,8 +54,9 @@ contract v27, and records through the SDK's rates helpers
 
 Its pages, under Manage alone, are the data role's: **Connection**
 (`read_connection`: the key set or not, never its value; its Sources) and
-**Datasets** (`read_datasets`: Served with Lag; Records, FRED series and
-Terms as tabs), each the same through the deployment's MCP.
+**Datasets** (`read_datasets`: tabs Served with Lag, Wants, Records, FRED
+series and Terms), each the same through the deployment's MCP, each fitting
+one screen at 375, 582 and 1280 px, on its own and framed.
 
 ## Settings
 
@@ -69,7 +70,7 @@ Terms as tabs), each the same through the deployment's MCP.
 ## Checking it
 
     make ci-local                                  # lint, tests, plugin check, image: the pre-push gate
-    make preview SHOTS=<dir>                       # each page in a browser with the kit, at 375, 582 and 1280 px
+    make preview SHOTS=<dir>                       # each page in a browser with the kit, at 375, 582 and 1280 px, on its own and framed
 
 **The data suite.** `tests/test_suite.py` runs the SDK's suite on the
 plugin's own conversion, and it passes: the rates slice's cases presented

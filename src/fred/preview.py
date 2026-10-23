@@ -40,6 +40,8 @@ PAGES = {
     "connection": CONNECTION,
     "datasets": DATASETS,
     "datasets-search": DATASETS,
+    "datasets-wants": DATASETS,
+    "datasets-records": DATASETS,
     "datasets-series": DATASETS,
     "datasets-terms": DATASETS,
     "connection-first": CONNECTION,
@@ -99,7 +101,7 @@ def render(page: str) -> str:
         feed = asyncio.run(synthetic_feed())
     hold(feed)
     query = {"q": SEARCHED} if page == "datasets-search" else {}
-    if page in ("datasets-series", "datasets-terms"):
+    if page in ("datasets-wants", "datasets-records", "datasets-series", "datasets-terms"):
         query = {"view": page.removeprefix("datasets-")}
     answer = PageClient(pages).get(PAGES[page], "admin", **query)
     if answer.status != 200:

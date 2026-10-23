@@ -47,7 +47,7 @@ help:
 	@echo "  make check          what check.yaml runs: meridian plugin check --verified --run-tests, in a container"
 	@echo "  make image          build the plugin's image, as upload would, and check it"
 	@echo "  make preview        write preview/: each page on sample data, linking the kit;"
-	@echo "                      SHOTS=<dir> also checks each in a browser with the kit, at 375, 582 and 1280 px wide, and keeps a screenshot"
+	@echo "                      SHOTS=<dir> also checks each in a browser with the kit, at 375, 582 and 1280 px wide, on its own and in the dashboard's frame, and keeps a screenshot"
 	@echo "  make fmt            apply the formatter"
 	@echo "  make install-hooks  point git at hooks/ so push fires ci-local"
 
@@ -117,10 +117,10 @@ preview:
 	@$(DOCKER) build $(SDK_CONTEXT) -f Dockerfile.check --target test -t $(CHECK) . >/dev/null 2>&1 \
 		|| { echo "preview FAILED to build" >&2; exit 1; }
 	@mkdir -p preview
-	@for page in connection datasets datasets-search datasets-series datasets-terms connection-first datasets-first; do \
+	@for page in connection datasets datasets-wants datasets-records datasets-series datasets-terms datasets-search connection-first datasets-first; do \
 		docker run --rm $(CHECK) python -m fred.preview $$page >preview/$$page.html || exit 1; \
 	done
-	@echo "preview: preview/connection.html, preview/datasets.html, preview/datasets-search.html, -series, -terms, and the -first pages"
+	@echo "preview: preview/connection.html, preview/datasets.html, each of Datasets' tabs, a search, and the -first pages"
 	@if [ -n "$(SHOTS)" ]; then \
 		[ -d "$(KIT_DIST)" ] || { echo "preview FAILED: no kit at $(KIT_DIST); set KIT_DIST to a meridian-ui checkout's dist/" >&2; exit 1; }; \
 		mkdir -p "$(SHOTS)"; \

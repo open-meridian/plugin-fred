@@ -18,7 +18,9 @@ open-meridian 0.32.1 (contract v27).
   table of the series carried; sample data.
 - **Raw answers kept from the first day**, in the storage the deployment
   grants, the key never among them.
-- **The data role's pages**, Connection (with Sources) and Datasets (with Lag,
-  Records, FRED series and Terms), each a read tool on the deployment's MCP.
+- **The data role's pages**, Connection (with Sources) and Datasets (its
+  sections as tabs: Served with Lag, Wants, Records, FRED series and Terms),
+  each a read tool on the deployment's MCP, each fitting one screen at 375,
+  582 and 1280 px, on its own and in the dashboard's frame.
 - **The data suite passes**: the rates slice's cases presented, but
   `two-conventions-one-tenor`.

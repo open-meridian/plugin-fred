@@ -8,7 +8,10 @@ to, 375, 582 and 1280 pixels. For each it checks that the kit's stylesheet and
 script loaded and its components upgraded (om-status, om-pager), that the
 page fits one screen by the kit's own overflow check (lib/fit.js,
 fitProblems), and that a row's detail opens within the screen; and keeps a
-screenshot of each in /out. Prints one line per check and exits non-zero if
+screenshot of each in /out. Then each again inside the dashboard's frame
+(tools/host.html, the kit gallery's stand-in host's chrome): framed, the
+page drops its own heading and tab row and has the viewport's height under
+the host's chrome, and must fit that. Prints one line per check and exits non-zero if
 any failed.
 
 Run in mcr.microsoft.com/playwright/python, as core's browser runs are.
@@ -44,6 +47,8 @@ def check(held, said):
 class Handler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
         path = path.split("?", 1)[0]
+        if path == "/host.html":
+            return "/tools/host.html"
         if path.startswith("/.meridian/ui/"):
             return os.path.join(KIT, path[len("/.meridian/ui/"):])
         return os.path.join(PAGES, path.lstrip("/"))
@@ -97,6 +102,23 @@ def main():
                         box["x"] + box["width"] <= width + 1 and box["y"] + box["height"] <= height + 1
                     check(inside, f"{name} at {size}: a row's detail opens within the screen ({box})")
                     page.screenshot(path=os.path.join(OUT, f"{name[:-5]}-{size}-detail.png"))
+                context.close()
+                # Inside the dashboard's frame: the host's chrome above, the
+                # page framed under it with the viewport's height left.
+                context = browser.new_context(viewport={"width": width, "height": height})
+                host = context.new_page()
+                kit = version.group(1) if version else ""
+                host.goto(f"http://127.0.0.1:8765/host.html?kit={kit}&page=/{name}")
+                host.wait_for_load_state("networkidle")
+                framed = host.frames[1]
+                framed.wait_for_load_state("networkidle")
+                marked = framed.evaluate("() => document.documentElement.hasAttribute('data-om-framed')")
+                check(marked, f"{name} at {size}, framed: the page knows it is framed")
+                problems = framed.evaluate(FIT)
+                check(not problems, f"{name} at {size}, framed, fits the frame" + (": " + "; ".join(problems) if problems else ""))
+                wide = framed.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                check(wide <= 0, f"{name} at {size}, framed: no horizontal scroll ({wide} px over)")
+                host.screenshot(path=os.path.join(OUT, f"{name[:-5]}-{size}-framed.png"))
                 context.close()
         browser.close()
     server.shutdown()

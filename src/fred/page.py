@@ -10,21 +10,22 @@ entitlements resolve, and no market data (the product owner, 2026-10-03).
 So, as spec/a-public-rates-and-filings-data-plugin §5 has them:
 
 - **Connection** (`/`): "Key" -- the mode (Live, Sample data or No key),
-  whether FRED's API key is set (never its value), what FRED serves;
-  "Limits and use" -- FRED's 120 requests a minute, the requests made, the
-  last call and error; "Stream": it does not stream. **Sources** is a row
-  of "Key", so the page fits one screen, its detail one line per
-  publisher's rates FRED carries -- its state, the latest day stated, its
-  calls, its last error; the next expected is not known, since no calendar
-  is declared -- and how many series are kept current.
-- **Datasets** (`/datasets`): "Served" (with **Lag** as a column, the
-  median published-minus-valid time), "Wants" and "Subjects", then FRED's
-  two tabs, one shown at a time (`?view=records`, the first, or
-  `?view=series`, `?view=terms`): **Records**, each rate and curve and its `INS-`, or why
-  none, and **FRED series**, each series' copyright class, dataset and
-  class changes, searched -- one line a row, paged by the kit's om-pager to
-  fit one screen -- and **Terms**, the notice and citation FRED's terms ask
-  for.
+  whether FRED's API key is set (never its value), what FRED serves, and
+  **Sources**, a row whose detail is one line per publisher's rates FRED
+  carries (its state, the latest day stated, its calls, its last error; the
+  next expected is not known, since no calendar is declared) and how many
+  series are kept current; "Limits and use" -- FRED's 120 requests a minute,
+  the requests made, the last call and error; "Stream": it does not stream.
+  The role's "Sessions" shows once the plugin has a session: FRED is
+  polled, so it has none, and the page fits one screen.
+- **Datasets** (`/datasets`): the role's sections and FRED's as tabs, one
+  shown at a time (`?view=`) so the page fits one screen: "Served" (with
+  **Lag** as a column, the median published-minus-valid time) and
+  "Subjects" under it, "Wants", **Records** (each rate and curve and its
+  `INS-`, or why none), **FRED series** (each series' copyright class,
+  dataset and class changes, searched) and **Terms** (the notice and
+  citation FRED's terms ask for) -- one line a row, paged by the kit's
+  om-pager.
 
 Neither shows a rate: rates are the reading roles' to show. Settings change
 through core's tools; the pages hold no actions.
@@ -59,6 +60,8 @@ DATASETS = "/datasets"
 
 #: The longest search the Datasets tab reads.
 MOST_QUERY = 100
+#: The Datasets page's tabs, one shown at a time (`?view=`), the first by default.
+VIEWS = ("served", "wants", "records", "series", "terms")
 #: How many wants the Datasets tab lists; read_datasets answers every one held.
 SHOWN_WANTS = 3
 #: What FRED's terms ask be said, and each class's citation (§7). The
@@ -363,7 +366,7 @@ async def datasets(request: meridian.Request) -> meridian.Response:
     # wants; a tool answers them all.
     query = request.query.get("q", "").strip()[:MOST_QUERY]
     asked = request.query.get("view", "")
-    view = "series" if query else asked if asked in ("series", "terms") else "records"
+    view = "series" if query else asked if asked in VIEWS else VIEWS[0]
     shown = [s for s in read.series if matching(query, s.series_id, s.of, s.title)]
     drawn = read if request.tool_name else replace(read, wants=read.wants[:SHOWN_WANTS])
     return pages.answer(

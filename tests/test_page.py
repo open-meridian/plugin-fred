@@ -52,6 +52,8 @@ def test_connection_says_how_fred_is_reached(client: PageClient) -> None:
     text = client.get(CONNECTION, "admin").text
     assert text.index("<h2>Key</h2>") < text.index("<h2>Limits and use</h2>")
     assert text.index("<h2>Key</h2>") < text.index("<tr data-sources>") < text.index("<h2>Limits")
+    # FRED is polled: no session, so no Sessions section.
+    assert "<h2>Sessions</h2>" not in text
     assert 'state="ok"' in text and "Sample data" in text
     assert "FRED API key: not set" in text and "Does not stream" in text
     assert "New York Fed reference rates" in text and "Treasury par yield curves (H.15)" in text
@@ -62,20 +64,25 @@ def test_connection_says_how_fred_is_reached(client: PageClient) -> None:
 
 def test_datasets_lists_the_three_datasets_records_and_series(client: PageClient) -> None:
     text = client.get(DATASETS, "admin").text
-    assert text.index("<h2>Served</h2>") < text.index("<h2>Wants</h2>")
-    assert text.index('<th class="wide-only">Lag</th>') < text.index("Records <span")
-    assert text.index("Records <span") < text.index("FRED series <span")
+    # The role's sections and FRED's as tabs, in the role's order, Served first.
+    tabs = ["Served <span", "Wants <span", "Records <span", "FRED series <span", ">Terms</a>"]
+    assert [text.index(t) for t in tabs] == sorted(text.index(t) for t in tabs)
+    assert text.index("<h2>Served</h2>") < text.index('<th class="wide-only">Lag</th>')
+    assert text.index("<h2>Served</h2>") < text.index("<h2>Subjects</h2>")
+    assert "<h2>Wants</h2>" not in text
+    wants = client.get(DATASETS, "admin", view="wants").text
+    assert "w-standing" not in text and "Kept current" in wants
     for dataset in ("fred:fred_public", "fred:fred_cited", "fred:fred_restricted"):
         assert dataset in text
     assert "served, not kept; no derived use; display" in text
-    # The first tab, Records; then FRED series.
+    text = client.get(DATASETS, "admin", view="records").text
     assert text.count("<tr data-record=") == len(SUBJECTS) and "<tr data-series=" not in text
     text = client.get(DATASETS, "admin", view="series").text
     assert text.count("<tr data-series=") == len(CARRIED) and "<tr data-record=" not in text
     assert "Copyrighted: citation required" in text and "Public domain: citation requested" in text
     terms = client.get(DATASETS, "admin", view="terms").text
     assert "not endorsed or certified by the Federal Reserve Bank of St. Louis" in terms
-    assert "<om-pager>" in text and "Kept current" in text
+    assert "<om-pager>" in text
 
 
 def test_the_tools_answer_what_the_pages_show(client: PageClient) -> None:
@@ -102,7 +109,7 @@ def test_the_tools_answer_what_the_pages_show(client: PageClient) -> None:
     assert series["DGS10"]["title"].startswith(
         "Market Yield on U.S. Treasury Securities at 10-Year"
     )
-    page = client.get(DATASETS, "admin").text
+    page = client.get(DATASETS, "admin", view="records").text
     assert all(r["instrument_id"] in page for r in read["records"] if r["instrument_id"])
     assert read["wants"][0]["want_id"] == "w-standing"
     assert read["wants"][0]["state"] == "Kept current"
@@ -140,7 +147,8 @@ def test_before_the_first_check() -> None:
     page_module._held.clear()
     text = PageClient(pages).get(CONNECTION, "admin").text
     assert "No key" in text
-    assert "Not resolved yet" in PageClient(pages).get(DATASETS, "admin").text
+    assert "Not resolved yet" in PageClient(pages).get(DATASETS, "admin", view="records").text
+    assert "No wants yet" in PageClient(pages).get(DATASETS, "admin").text
 
 
 def test_fred_not_reached(tmp_path: Path) -> None:
