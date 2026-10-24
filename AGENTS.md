@@ -1,7 +1,7 @@
 # meridian-fred
 
 FRED's interest-rate series as an Open Meridian data plugin, in Python on the
-open-meridian SDK (0.32.1, contract v27). It runs beside a sidecar in a
+open-meridian SDK (0.32.2, contract v27). It runs beside a sidecar in a
 Meridian deployment and puts the rate series it carries into the
 deployment's lake as `Rate` rows, through the SDK's rates helpers
 (`meridian.roles.data.rates`), each against the platform's seeded
@@ -42,10 +42,10 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
   deployment's MCP answering the role's common fields,
   `meridian.roles.data`'s records extended with FRED's (Sources; Lag,
   Records, FRED series and Terms). The templates extend the role's and draw
-  its content in its order and words, only so each page fits one screen:
-  Datasets' sections as tabs (`?view=`), and Connection's Sessions shown
-  once there is a session. Never rename or reorder a common section, row,
-  column or label.
+  its content in its order and words, only so the page fits one screen:
+  Datasets' sections as tabs (`?view=`). Connection extends the role's at
+  its blocks alone. Never rename or reorder a common section, row, column
+  or label.
 
 ## The rules it keeps
 
@@ -73,7 +73,7 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
   handled in building the plugin.
 - **The suite.** `tests/test_suite.py` runs `meridian.suites.run("data", ...)`
   on the plugin's own conversion, and passes: the cases a rates-only plugin
-  never presents are the SDK's `RATES_NOT_PRESENTED`, and three more are
+  never presents are the SDK's `RATES_NOT_PRESENTED`, and four more are
   named with why. Never write a producer that invents what FRED does not
   state.
 - **The rates slice only.** Macro series (Observation, Series) come with the
@@ -81,10 +81,13 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
 
 ## Checking it locally
 
-    make ci-local                     # lint, tests, plugin check, image: the pre-push gate
+    make ci-local                     # lint, tests, plugin check, image, e2e: the pre-push gate
     make preview SHOTS=/tmp/shots     # each page in a browser with the kit, at 375, 582 and 1280 px, on its own and framed
 
-Every gate runs in a container: the host needs only Docker.
+`make e2e` runs the plugin on core's plugin harness beside a reading plugin
+(`e2e/reader.py`), FRED's API unreachable (`e2e/hosts`), sample data on,
+and compares the lake with `e2e/expected.lake`. Every gate runs in a
+container: the host needs only Docker and Python 3 for the e2e's runner.
 
 This file is for any coding agent working on the plugin, and is committed with
 it for whoever works on it next. It is the canonical one: `CLAUDE.md` and the

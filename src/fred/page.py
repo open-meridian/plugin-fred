@@ -16,8 +16,8 @@ So, as spec/a-public-rates-and-filings-data-plugin §5 has them:
   next expected is not known, since no calendar is declared) and how many
   series are kept current; "Limits and use" -- FRED's 120 requests a minute,
   the requests made, the last call and error; "Stream": it does not stream.
-  The role's "Sessions" shows once the plugin has a session: FRED is
-  polled, so it has none, and the page fits one screen.
+  The role draws "Sessions" once a session is measured: FRED is polled, so
+  never.
 - **Datasets** (`/datasets`): the role's sections and FRED's as tabs, one
   shown at a time (`?view=`) so the page fits one screen: "Served" (with
   **Lag** as a column, the median published-minus-valid time) and
@@ -64,8 +64,9 @@ MOST_QUERY = 100
 VIEWS = ("served", "wants", "records", "series", "terms")
 #: How many wants the Datasets tab lists; read_datasets answers every one held.
 SHOWN_WANTS = 3
-#: What FRED's terms ask be said, and each class's citation (§7). The
-#: contract's licence carries no attribution in SDK 0.32.1, so it is said here.
+#: What FRED's terms ask be said, and each class's citation (§7), on the
+#: Terms tab: the licence's attribution fields are held until core v27
+#: accepts them at registration (declared.py).
 ATTRIBUTION = (
     "This product uses the FRED® API but is not endorsed or certified by the Federal "
     "Reserve Bank of St. Louis. Cite each series' source as FRED's suggested citation "

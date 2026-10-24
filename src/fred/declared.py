@@ -22,13 +22,15 @@ series slice (§8, stage 3); this version declares only what it records.
   follows its publisher's, which FRED does not state (§3: "none");
 - no venue;
 - the licence each class's terms suggest (§7): `fred_public` and
-  `fred_cited` kept, derived use and display; `fred_restricted` served, never
-  kept, no derived use, display. A deployment's licence confirms or replaces
-  each default on the Data sources page; the plugin says nothing of whether
-  a deployment meets anyone's terms. FRED's non-endorsement notice, and the
-  citation the cited class requires, are stated in docs/terms.md and on the
-  Datasets page: SDK 0.32.1's `DatasetLicence` does not carry contract
-  v27's attribution fields yet (`attribution_text`, `copyright_class`).
+  `fred_cited` kept, derived use and display; `fred_restricted` served,
+  never kept, derived use internal only, display. A deployment's licence
+  confirms or replaces each default on the Data sources page; the plugin
+  says nothing of whether a deployment meets anyone's terms. FRED's
+  non-endorsement notice, the citation each class asks for and its
+  copyright class are stated on the Datasets page's Terms tab and in
+  docs/terms.md: SDK 0.32.2 writes the licence's attribution fields, but
+  core v27 refuses a registration that sets them until its fix is published
+  (held 2026-10-24), so they come with the next version.
 
 **Storage:** FRED's answers (raw.py), archivable, ten years by default.
 """

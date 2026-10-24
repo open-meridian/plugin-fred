@@ -9,7 +9,7 @@ This is release 0.1.0, not released yet. How to set it up and use it is in
 [docs/](docs/README.md); how a plugin like it is built is documented at
 [open-meridian.dev](https://open-meridian.dev).
 
-It is built on the SDK it pins, `open-meridian==0.32.1`, which declares
+It is built on the SDK it pins, `open-meridian==0.32.2`, which declares
 contract v27, and records through the SDK's rates helpers
 (`meridian.roles.data.rates`). It is FRED's plugin in meridian-design's
 `spec/a-public-rates-and-filings-data-plugin.md`, with the rates slice
@@ -69,13 +69,23 @@ one screen at 375, 582 and 1280 px, on its own and framed.
 
 ## Checking it
 
-    make ci-local                                  # lint, tests, plugin check, image: the pre-push gate
+    make ci-local                                  # lint, tests, plugin check, image, e2e: the pre-push gate
     make preview SHOTS=<dir>                       # each page in a browser with the kit, at 375, 582 and 1280 px, on its own and framed
+
+`make e2e` runs it on core's plugin harness (core v27, a5da59a) beside a
+reading plugin: with no key nothing asked or recorded; sample data and seven
+series kept current recorded, each against the `INS-` record its
+administrator's code resolves to on the harness's platform; both tools
+answering what the pages show; licensed and entitled; SOFR and Treasury's
+10-year read back as FRED states them; a past day wanted and recorded, a
+holiday and a record FRED carries no series of declined; the lake as
+`e2e/expected.lake`; and a new container recording nothing twice.
 
 **The data suite.** `tests/test_suite.py` runs the SDK's suite on the
 plugin's own conversion, and it passes: the rates slice's cases presented
 but `two-conventions-one-tenor` (no bill series carried), and every case a
-rates-only plugin never presents named with why (`RATES_NOT_PRESENTED`).
+rates-only plugin never presents named with why (`RATES_NOT_PRESENTED`), and
+`records-a-datasets-liveness` (it polls hourly and records no liveness).
 
 ## The terms, summarised
 

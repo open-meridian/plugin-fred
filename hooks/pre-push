@@ -2,7 +2,7 @@
 # Pre-push gate for a plugin: CI-first (ruled 2026-10-13).
 #
 # A plugin's change lands through a pull request: push a branch, open the pull
-# request, and its CI (ci, check) is the first line; merge when green.
+# request, and its CI (ci, check, e2e) is the first line; merge when green.
 # Pushing a branch therefore runs nothing here. `make ci-local` stays the way
 # to reproduce or debug a CI failure locally.
 #

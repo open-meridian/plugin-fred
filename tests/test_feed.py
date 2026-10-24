@@ -65,13 +65,20 @@ def test_a_rate_is_exact_never_a_float(tmp_path: Path) -> None:
     latest = max(index, key=lambda r: r.meta.business_date)
     assert str(as_decimal(latest.value.value)) == "1.26384966"
     assert ops.ValueUnit.Name(latest.value.unit) == "VALUE_UNIT_INDEX"
-    assert latest.value.index_base == "2018-04-02=1"
+    assert latest.value.index_base == "2018-04-02=1.00000000"
     estr = [r for r in rows(plugin) if r.meta.subjects[0].entity_id == record_id(ESTR)]
     assert {str(as_decimal(r.value.value)) for r in estr} >= {"2.442", "2.440"}
     assert estr[0].meta.source.dataset == PUBLIC
     # ECBESTRTOTVOL states millions of euros.
     assert all(r.volume.currency_code == "EUR" for r in estr)
     assert number(".") is None and number("NaN") is None and number("3.90") == Decimal("3.90")
+
+
+def test_every_rate_states_its_convention(tmp_path: Path) -> None:
+    # The lake keeps no rate without one, an index level among them.
+    plugin = lake()
+    asyncio.run(feed(tmp_path, plugin, kept=[s.series_id for s in CARRIED]).check())
+    assert rows(plugin) and all(r.HasField("convention") for r in rows(plugin))
 
 
 def test_only_the_latest_observation_has_a_published_time(tmp_path: Path) -> None:

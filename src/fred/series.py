@@ -186,7 +186,9 @@ CARRIED: tuple[Series, ...] = (
     Series("SOFR30DAYAVG", SOFR_30, "average", MM),
     Series("SOFR90DAYAVG", SOFR_90, "average", MM),
     Series("SOFR180DAYAVG", SOFR_180, "average", MM),
-    Series("SOFRINDEX", SOFR_INDEX, "index_level", index_base="2018-04-02=1"),
+    # Money-market convention, as the publisher's plugin records the index:
+    # the lake requires every rate's convention.
+    Series("SOFRINDEX", SOFR_INDEX, "index_level", MM, index_base="2018-04-02=1.00000000"),
     Series("DFEDTARL", FOMC_LOWER, "fixing", MM),
     Series("DFEDTARU", FOMC_UPPER, "fixing", MM),
     Series(

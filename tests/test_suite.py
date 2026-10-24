@@ -5,13 +5,14 @@ plugin §6 lists them, and the role's cases every data plugin presents.
 
 FRED's rate series are rates, recorded as `Rate` rows (contract v27). The
 cases a rates-only plugin never presents -- every case about a price, a
-trade, a quote or an outcome, a stream's liveness, and the feed delay until
+trade, a quote or an outcome, and the feed delay until
 core receives ReportLatency (ruling 518) -- are the SDK's
 `RATES_NOT_PRESENTED` (ruling 538), each with why. Beside them this plugin
-names three of its own: the settlement calendars' two (its datasets declare
+names four of its own: the settlement calendars' two (its datasets declare
 no calendar: FRED states none for a series, and it never computes a
-settlement date) and `two-conventions-one-tenor` (it carries no bill
-series).
+settlement date), `two-conventions-one-tenor` (it carries no bill series)
+and `records-a-datasets-liveness` (it polls hourly and records no
+liveness).
 
 The cases every suite holds that the SDK answers (a replacement, the
 template catalogue, an event group heard) are the SDK's.
@@ -40,6 +41,9 @@ NOT_PRESENTED = {
     ),
     "two-conventions-one-tenor": (
         "it carries no bill series, so no discount rate and coupon-equivalent yield"
+    ),
+    "records-a-datasets-liveness": (
+        "it polls FRED hourly and records no liveness: each series changes once a day at most"
     ),
 }
 

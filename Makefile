@@ -5,7 +5,7 @@ SHELL := /bin/bash
 unexport GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR \
          GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
-.PHONY: help ci-local ci-local-deep ci-remote test lint check image preview fmt install-hooks
+.PHONY: help ci-local ci-local-deep ci-remote test lint check image e2e preview fmt install-hooks
 
 DOCKER      := DOCKER_BUILDKIT=1 docker
 PY_VERSION  := 3.12
@@ -31,6 +31,29 @@ MERIDIAN_VERSION := $(shell sed -n 's/^ *MERIDIAN_VERSION: *\([0-9][0-9.]*\).*/\
 MERIDIAN_BIN ?=
 CLI_CONTEXT := $(if $(MERIDIAN_BIN),--build-context cli=$(MERIDIAN_BIN),)
 
+# The released runtime `make e2e` proves the plugin against, by tag and
+# digest, and core's plugin harness published with it, by the same commit's tag and
+# its digest, since a harness and a runtime of different commits may
+# disagree about the dashboard's pages. Moved together by a deliberate
+# commit, when this plugin chooses. `make e2e RUNTIME_IMAGE=...:latest
+# HARNESS_IMAGE=...:latest` tries a newer core; e2e-latest.yaml does that
+# weekly.
+# Core a5da59a (merged as 6d346b3), contract v27, as published with chart 0.1.310:
+# the harness's platform holds the seeded referential records by symbol and
+# administrator.
+RUNTIME_IMAGE ?= ghcr.io/open-meridian/meridian-runtime:a5da59a@sha256:05694f1ca4d642def4e2572c78a56c3ce3c43d060f4bac2983e19283e98910de
+HARNESS_IMAGE ?= ghcr.io/open-meridian/meridian-harness:a5da59a@sha256:74a1e5f08308e26571141b24548082280fed8519976c08b32cd8a4b34fc8e08c
+# The harness's two plugins: this one, as instance fred, holding data as
+# pyproject.toml declares; and the reader, a reporting plugin the e2e runs
+# from e2e/reader.py in the same image.
+# The declaration [tool.meridian] names (contract v25): `make e2e` prints it
+# from the image under test, as `meridian plugin upload` reads it, and the
+# harness holds the plugin's registration to it (its README, `declaration`).
+# Each stand-in's the same, its directory mounted as it runs.
+DECLARATION_REF := $(shell sed -n 's/^declaration *= *"\(.*\)"/\1/p' pyproject.toml)
+DECLARE := docker run --rm --network none --entrypoint meridian-declaration
+PLUGINS := [{"instance": "fred", "image": "$(IMAGE)", "roles": ["data"], "declaration": "declaration.json"}, {"instance": "reader", "image": "$(IMAGE)", "roles": ["reporting"], "declaration": "reader.json"}]
+
 # The kit's built files, where `make preview SHOTS=...` serves them beside
 # the pages for the browser: a meridian-ui checkout's dist/.
 KIT_DIST    ?= ../meridian-ui/dist
@@ -40,12 +63,13 @@ BROWSER     ?= mcr.microsoft.com/playwright/python:v1.63.0-noble
 SHOTS       ?=
 
 help:
-	@echo "  make ci-local       every gate: lint, tests, plugin check and the plugin's image (the pre-push gate)"
+	@echo "  make ci-local       every gate: lint, tests, plugin check, the plugin's image, and e2e (the pre-push gate)"
 	@echo "  make ci-remote      what ci.yaml runs: lint and tests"
 	@echo "  make test           the tests, in a container"
 	@echo "  make lint           ruff and mypy, strict"
 	@echo "  make check          what check.yaml runs: meridian plugin check --verified --run-tests, in a container"
 	@echo "  make image          build the plugin's image, as upload would, and check it"
+	@echo "  make e2e            the plugin, on sample data, on the plugin harness of the runtime it pins: its rates in the lake"
 	@echo "  make preview        write preview/: each page on sample data, linking the kit;"
 	@echo "                      SHOTS=<dir> also checks each in a browser with the kit, at 375, 582 and 1280 px wide, on its own and in the dashboard's frame, and keeps a screenshot"
 	@echo "  make fmt            apply the formatter"
@@ -53,7 +77,7 @@ help:
 
 # Local green is the completion signal; CI is confirmation. Every CI job is a
 # target reachable from here.
-ci-local: ci-remote check image
+ci-local: ci-remote check image e2e
 	@echo
 	@echo "ci-local: GREEN"
 
@@ -128,6 +152,39 @@ preview:
 			-v "$(CURDIR)/tools":/tools:ro -v "$(abspath $(SHOTS))":/out $(BROWSER) \
 			sh -c 'pip install -q --break-system-packages playwright==1.63.0 >/dev/null 2>&1 && python3 /tools/browser.py' || exit 1; \
 	fi
+
+# The plugin on the plugin harness published with the runtime it pins (the
+# harness's README, in HARNESS_IMAGE), beside a reading plugin: with no key
+# it asks FRED nothing (and FRED's API answers nowhere, the e2e's hosts
+# file); sample data and the series kept current record the committed
+# answers' last ten days, to 22 October 2026, each against the seeded
+# referential record its administrator's code resolves to; the rates are in
+# the lake as e2e/expected.lake says, read back by the reader, a past day
+# wanted and recorded, a holiday and a record it carries no series of
+# declined, both tools answering what the pages show, and a new container
+# recording nothing twice. e2e/run.py says each step.
+# Its own project and no published port; nothing outlives it.
+e2e: image
+	@rm -rf .e2e && mkdir -p .e2e
+	@# A tag alone, such as latest, can move: take what the registry has now.
+	@for image in $(RUNTIME_IMAGE) $(HARNESS_IMAGE); do \
+		case "$$image" in *@sha256:*) ;; *) docker pull -q "$$image" >/dev/null 2>&1 || true;; esac; \
+	done
+	@id="$$(docker create $(HARNESS_IMAGE) none 2>>.e2e/components.log)" \
+		&& docker cp "$$id:/harness" .e2e/harness >/dev/null \
+		&& docker rm "$$id" >/dev/null \
+		|| { echo "e2e FAILED: no plugin harness at /harness in $(HARNESS_IMAGE)" >&2; exit 1; }
+	@$(DECLARE) $(IMAGE) $(DECLARATION_REF) >.e2e/harness/declaration.json 2>>.e2e/components.log \
+		|| { rm -rf .e2e/harness; echo "e2e FAILED: meridian-declaration did not print $(DECLARATION_REF) (declaration.json)" >&2; exit 1; }
+	@$(DECLARE) -v "$(CURDIR)/e2e":/e2e:ro -e PYTHONPATH=/e2e $(IMAGE) reader:DECLARATION >.e2e/harness/reader.json 2>>.e2e/components.log \
+		|| { rm -rf .e2e/harness; echo "e2e FAILED: meridian-declaration did not print reader:DECLARATION (reader.json)" >&2; exit 1; }
+	@printf '%s\n' '$(PLUGINS)' | docker run --rm -i -v "$(CURDIR)/.e2e/harness":/harness:ro python:3.12-alpine \
+		python /harness/harness.py compose >.e2e/harness/plugins.yaml 2>>.e2e/components.log \
+		|| { echo "e2e FAILED: the harness did not write its plugins" >&2; exit 1; }
+	@# The harness's copy is removed however the run ends: `meridian plugin
+	@# check` reads every source file under this directory.
+	@trap 'rm -rf .e2e/harness' EXIT; \
+		MERIDIAN_RUNTIME_IMAGE=$(RUNTIME_IMAGE) E2E_DIR="$(CURDIR)/e2e" python3 e2e/run.py
 
 # Applied in a container and written back, because the host has no toolchain.
 fmt:

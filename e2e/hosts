@@ -1,0 +1,5 @@
+# The e2e's hosts file, mounted over the plugin's /etc/hosts (e2e/plugin.yaml):
+# FRED's API answers nowhere, so the run never reads the live API.
+127.0.0.1 localhost
+::1 localhost
+127.0.0.1 api.stlouisfed.org

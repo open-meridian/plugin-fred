@@ -33,6 +33,9 @@ def test_each_classes_terms() -> None:
     restricted = held["fred_restricted"]
     assert restricted is not None and not restricted.kept and restricted.display
     assert restricted.derived_use_terms == "internal_only" and not restricted.derived_use
+    # The attribution fields are held until core accepts them (2026-10-24).
+    for licence in held.values():
+        assert licence is not None and not licence.attribution_text and not licence.copyright_class
 
 
 def test_the_answers_are_kept_in_storage() -> None:

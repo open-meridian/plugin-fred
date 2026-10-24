@@ -3,7 +3,7 @@
 ## 0.1.0
 
 The first version: FRED's plugin with the lake's rates slice, on
-open-meridian 0.32.1 (contract v27).
+open-meridian 0.32.2 (contract v27).
 
 - **FRED's rate series as rates**, through the SDK's rates helpers: the New
   York Fed's SOFR, EFFR and OBFR (with percentiles and volume), the SOFR
@@ -24,3 +24,6 @@ open-meridian 0.32.1 (contract v27).
   582 and 1280 px, on its own and in the dashboard's frame.
 - **The data suite passes**: the rates slice's cases presented, but
   `two-conventions-one-tenor`.
+- **The e2e** on core v27's plugin harness: each seeded referential record
+  resolved by its administrator's code, rates recorded, read back by a
+  reading plugin and wanted, the lake as expected.
