@@ -1,0 +1,10 @@
+meridian-fred
+Copyright 2026 Societal Lab Inc.
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+The data this plugin reads are served by FRED, Federal Reserve Bank of St.
+Louis, and belong to each series' publisher. This product uses the FRED® API
+but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
+This project is not affiliated with or endorsed by the Federal Reserve Bank
+of St. Louis or any series' publisher.

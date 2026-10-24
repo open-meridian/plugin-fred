@@ -1,221 +1,159 @@
-"""The data suite: the role's requirement, which this plugin holds itself to.
+"""The data suite at contract v27 (meridian.suites), each case FRED's rate
+series present mapped to the plugin's own conversion of FRED's recorded
+answers: the rates slice's cases as spec/a-public-rates-and-filings-data-
+plugin §6 lists them, and the role's cases every data plugin presents.
 
-A plugin holding `data` is verified for it only by passing every case of the
-suite the SDK carries, and `meridian plugin check --verified` fails one with
-no test running it. Each case says, in the contract's words, what the
-vendor presents and what the plugin sends. Here each is mapped to one of the
-vendor's responses (vendor.py), run through the plugin's own conversion
-(convert.py), against a `Recorder`: the plugin's typed operations, recorded
-rather than sent, answered as a sidecar answers them in the ordinary case,
-or as `answer` says for the case.
+FRED's rate series are rates, recorded as `Rate` rows (contract v27). The
+cases a rates-only plugin never presents -- every case about a price, a
+trade, a quote or an outcome, and the feed delay until
+core receives ReportLatency (ruling 518) -- are the SDK's
+`RATES_NOT_PRESENTED` (ruling 538), each with why. Beside them this plugin
+names four of its own: the settlement calendars' two (its datasets declare
+no calendar: FRED states none for a series, and it never computes a
+settlement date), `two-conventions-one-tenor` (it carries no bill series)
+and `records-a-datasets-liveness` (it polls hourly and records no
+liveness).
 
-When you replace the stand-in vendor with your own, map each case to a
-recorded or synthetic exchange with it, and keep every case passing.
-
-A case about a kind of data (its `about`) the plugin declares it never
-publishes is not presented, with why, rather than mapped: this plugin's one
-dataset is daily closes and bars (declaration.py), so it states no trades,
-no quotes, no event contract's outcomes and no rates, and it is pulled,
-never streamed. Declare a dataset of trades, quotes, outcomes or rates, or
-stream one, and those cases are required again, and fail until each is
-mapped. From contract v27 the lake's bounded query is about trades too: a
-plugin recording none marks it not presented.
+The cases every suite holds that the SDK answers (a replacement, the
+template catalogue, an event group heard) are the SDK's.
 """
 
 from __future__ import annotations
 
-from typing import cast
+from collections.abc import Awaitable, Callable
+from datetime import datetime, timedelta
+from pathlib import Path
 
-import meridian
 from meridian.plugin.v1 import operations_pb2 as ops
-from meridian.suites import Producer, Recorder, run, suite
+from meridian.roles.data.testing import RATES_NOT_PRESENTED, Instruments
+from meridian.suites import ANSWERED_BY_SDK, Recorder, run
 
-from fred.convert import Converter
-from fred.declaration import DECLARATION
-from fred.vendor import DAILY, FORMING
+from fred.feed import NEW_YORK
+from fred.series import PAR, SOFR
 
-INSTANCE = "reference-1"
-DAY = 1_791_417_600_000_000_000  # 2026-10-09 00:00 UTC, when the lake asks
+from conftest import CITED, PUBLIC, Revised, feed, record_id, seeded, want
 
-
-def converter(recorder: Recorder) -> Converter:
-    return Converter(cast(meridian.Plugin, recorder))
-
-
-def daily(symbol: str) -> Producer:
-    """The vendor's candle for `symbol`, converted and recorded."""
-
-    async def produce(recorder: Recorder) -> None:
-        await converter(recorder).record_daily(symbol, DAILY[symbol])
-
-    return produce
-
-
-async def forming(recorder: Recorder) -> None:
-    for text in FORMING:
-        await converter(recorder).record_daily("BTC-USD", text)
+NOT_PRESENTED = {
+    **RATES_NOT_PRESENTED,
+    "reads-a-calendar": "its datasets declare no calendar: FRED states none for a series",
+    "asks-for-a-settlement-date": (
+        "records each rate as published; never computes a settlement date"
+    ),
+    "two-conventions-one-tenor": (
+        "it carries no bill series, so no discount rate and coupon-equivalent yield"
+    ),
+    "records-a-datasets-liveness": (
+        "it polls FRED hourly and records no liveness: each series changes once a day at most"
+    ),
+}
 
 
-async def ambiguous(recorder: Recorder) -> None:
-    # The vendor's symbol meets two of the deployment's records.
-    recorder.answer(
-        "ResolveIdentifier",
-        lambda _: ops.ResolveIdentifierResult(
-            found=False, miss_reason=ops.MISS_REASON_AMBIGUOUS
-        ),
-    )
-    await converter(recorder).record_daily("BTC-USD", DAILY["BTC-USD"])
-
-
-async def venue_not_held(recorder: Recorder) -> None:
-    recorder.answer(
-        "ResolveVenue",
-        lambda _: ops.ResolveVenueResult(found=False, miss_reason=ops.MISS_REASON_NOT_FOUND),
-    )
-    await converter(recorder).record_daily("QQQ", DAILY["QQQ"])
-
-
-def wanted(symbol: str | None) -> Producer:
-    """The lake wanting a business date's closes for the instrument `symbol`
-    resolved to; for one the vendor does not serve, with None."""
-
-    async def produce(recorder: Recorder) -> None:
-        plugin = converter(recorder)
-        await plugin.map_products(DAY)
-        subject = next(
-            (held for held, served in plugin.products.items() if served == symbol),
-            "LCL-NOT-SERVED",
-        )
-        want = ops.ObservationsWantedEvent(
-            want_id="WNT-1",
-            dataset=f"{INSTANCE}:daily",
-            data_type="meridian.v1.Price",
-            subjects=[ops.SubjectRef(entity_id=subject)],
-            kinds=[ops.PRICE_KIND_CLOSE],
-            business_date="2026-10-08",
-        )
-        recorder.answer("ObservationsWanted", lambda _: want)
-        await recorder.receive(observations_wanted=plugin.on_want)
-
-    return produce
-
-
-async def elsewhere(recorder: Recorder) -> None:
-    """The lake wanting a close for an instrument another source resolved --
-    a custodian's QQQ, known by its symbol and a CUSIP -- which this plugin
-    never resolved: it reads the record and serves its own symbol."""
-    plugin = converter(recorder)
-    subject = "LCL-HELD-ELSEWHERE"
-    recorder.answer(
-        "ResolveInstrument",
-        lambda _: ops.ResolveInstrumentResult(
-            found=True,
-            instrument=ops.InstrumentRecord(
-                instrument_id=subject,
-                identifiers=[
-                    ops.Identifier(scheme="cusip", value="46090E103"),
-                    ops.Identifier(scheme="symbol", value="QQQ", source="custodian"),
-                ],
+def _seeded(recorder: Recorder, ambiguous: bool = False) -> None:
+    if ambiguous:
+        recorder.answer(
+            "ResolveIdentifier",
+            lambda _: ops.ResolveIdentifierResult(
+                found=False, miss_reason=ops.MISS_REASON_AMBIGUOUS
             ),
-        ),
-    )
-    want = ops.ObservationsWantedEvent(
-        want_id="WNT-1",
-        dataset=f"{INSTANCE}:daily",
-        data_type="meridian.v1.Price",
-        subjects=[ops.SubjectRef(entity_id=subject)],
-        kinds=[ops.PRICE_KIND_CLOSE],
-        business_date="2026-10-08",
-    )
-    recorder.answer("ObservationsWanted", lambda _: want)
-    await recorder.receive(observations_wanted=plugin.on_want)
+        )
+        return
+    seeded(Instruments().answering(recorder))
 
 
-async def withdrawn(recorder: Recorder) -> None:
-    plugin = converter(recorder)
-    recorder.answer(
-        "WantWithdrawn",
-        lambda _: [ops.WantWithdrawnEvent(want_id="WNT-1", dataset=f"{INSTANCE}:daily")],
-    )
-    await recorder.receive(want_withdrawn=plugin.on_withdrawn)
+def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
+    def kept(*series: str) -> Callable[[Recorder], Awaitable[None]]:
+        async def produce(recorder: Recorder) -> None:
+            _seeded(recorder)
+            await feed(tmp, recorder, kept=series).check()
+
+        return produce
+
+    async def two_records(recorder: Recorder) -> None:
+        # SOFR's code meets two of the deployment's records.
+        _seeded(recorder, ambiguous=True)
+        await feed(tmp, recorder, kept=["SOFR"]).check()
+
+    async def revised(recorder: Recorder) -> None:
+        # The 22nd's SOFR wanted, then FRED revises it, and it is wanted
+        # again: the same row key, a new value, a later published time.
+        _seeded(recorder)
+        api = Revised()
+        work = feed(tmp, recorder, api=api)
+        sofr = record_id(SOFR)
+        for n in (1, 2):
+            asked = want(f"w-{n}", [sofr], day="2026-10-22", dataset=CITED).message
+            recorder.answer("ObservationsWanted", lambda _, held=asked: held)  # type: ignore[misc]
+            await recorder.receive(observations_wanted=work.on_want)
+            api.revised = True
+
+    def the_curve(*days: str) -> Callable[[Recorder], Awaitable[None]]:
+        # Treasury's nominal curve from H.15's series around the 1-month's
+        # first day, 31 July 2001: on the 30th no 1-month point, on the 31st
+        # one.
+        async def produce(recorder: Recorder) -> None:
+            _seeded(recorder)
+            work = feed(tmp, recorder)
+            message = want(
+                "w-curve", [record_id(PAR)], day=days[0] if len(days) == 1 else ""
+            ).message
+            if len(days) > 1:
+                start = datetime.fromisoformat(days[0]).replace(tzinfo=NEW_YORK)
+                end = datetime.fromisoformat(days[-1]).replace(tzinfo=NEW_YORK) + timedelta(days=1)
+                message.valid_from_ns = int(start.timestamp()) * 10**9
+                message.valid_until_ns = int(end.timestamp()) * 10**9
+            recorder.answer("ObservationsWanted", lambda _: message)
+            await recorder.receive(observations_wanted=work.on_want)
+            sent = [r for b in recorder.on("RecordRates") for r in b.rates]
+            on_30th = {
+                (r.tenor.count, r.tenor.unit) for r in sent if r.meta.business_date == "2001-07-30"
+            }
+            assert sent and (1, ops.TENOR_UNIT_MONTH) not in on_30th, "no 1-month point, no zero"
+
+        return produce
+
+    async def licences(recorder: Recorder) -> None:
+        recorder.answer(
+            "ListDatasets",
+            lambda _: ops.ListDatasetsResult(licences=[ops.DatasetLicence(dataset=PUBLIC)]),
+        )
+        work = feed(tmp, recorder)
+        await work.wants.read_licences()
+        assert work.wants.licensed == {PUBLIC}
+
+    async def declined(recorder: Recorder) -> None:
+        _seeded(recorder)
+        work = feed(tmp, recorder)
+        asked = want("w-2", ["INS-NOT-CARRIED"], day="2026-10-21").message
+        recorder.answer("ObservationsWanted", lambda _: asked)
+        await recorder.receive(observations_wanted=work.on_want)
+
+    async def withdrawn(recorder: Recorder) -> None:
+        _seeded(recorder)
+        work = feed(tmp, recorder)
+        recorder.answer(
+            "WantWithdrawn",
+            lambda _: ops.WantWithdrawnEvent(want_id="w-standing", dataset=PUBLIC),
+        )
+        await recorder.receive(want_withdrawn=work.on_withdrawn)
+
+    return {
+        "an-asset-that-does-not-resolve": two_records,
+        "a-subject-declined": declined,
+        "a-standing-want-withdrawn": withdrawn,
+        "reads-its-datasets-licences": licences,
+        "a-rate-fixing": kept("SOFR"),
+        "a-same-day-revision": revised,
+        "a-curve-for-a-date": the_curve("2001-07-30", "2001-07-31"),
+        "a-tenor-not-published": the_curve("2001-07-30"),
+        "an-index-level": kept("SOFRINDEX"),
+        "a-curve-point-from-another-source": kept("DGS10"),
+    }
 
 
-async def licences(recorder: Recorder) -> None:
-    # On start (contract v20): its own declared datasets' licences.
-    await converter(recorder).read_licences()
-
-
-# The settlement calendars' reads every role holds (contract v22): a plugin
-# needing a calendar's days or a settlement date asks core, the deployment's
-# one answer, and never works one out itself.
-async def reads_a_calendar(recorder: Recorder) -> None:
-    await recorder.read_calendar(
-        calendar_id="CAL-01JAE0000000000000000USSS",
-        from_date="2026-10-01",
-        to_date="2026-10-31",
-    )
-
-
-async def asks_for_a_settlement_date(recorder: Recorder) -> None:
-    await recorder.compute_date(
-        settlement=ops.SettlementDateInputs(instrument_id="LCL-1", trade_date="2026-10-09")
-    )
-
-
-PRODUCERS: dict[str, Producer] = {
-    "a-daily-close": daily("BTC-USD"),
-    "the-forming-day-restated": forming,
-    "an-exact-price": daily("SHIB-USD"),
-    "a-daily-bar": daily("BTC-USD"),
-    "an-fx-rate": daily("EUR-USD"),
-    "a-stablecoin-quote": daily("ETH-USDC"),
-    "an-asset-that-does-not-resolve": ambiguous,
-    "a-venue-resolved": daily("QQQ"),
-    "a-venue-not-held": venue_not_held,
-    "a-want-recorded-against": wanted("BTC-USD"),
-    "a-subject-another-source-resolved": elsewhere,
-    "a-subject-declined": wanted(None),
-    "a-standing-want-withdrawn": withdrawn,
-    "reads-its-datasets-licences": licences,
-    "reads-a-calendar": reads_a_calendar,
-    "asks-for-a-settlement-date": asks_for_a_settlement_date,
-}
-
-
-#: Each kind of data a case may be about that is one of the lake's data
-#: types, by its message: a case about one the catalogue does not declare is
-#: about something this plugin never publishes.
-KINDS = {
-    "trades": "meridian.v1.Trade",
-    "quotes": "meridian.v1.Quote",
-    "outcomes": "meridian.v1.Outcome",
-    "disputed outcomes": "meridian.v1.Outcome",
-    "rates": "meridian.v1.Rate",
-}
-DECLARED = {kind for dataset in DECLARATION.catalogue for kind in dataset.data_types}
-STREAMED = any(
-    mode == ops.OBSERVATION_MODE_STREAM
-    for dataset in DECLARATION.catalogue
-    for mode in dataset.modes
-)
-
-NOT_PRESENTED: dict[str, str] = {
-    case.name: f"its datasets publish daily closes and bars, and no {case.about}"
-    for case in suite("data").cases
-    if case.about in KINDS and KINDS[case.about] not in DECLARED
-}
-if not STREAMED:
-    NOT_PRESENTED["records-a-datasets-liveness"] = (
-        "its datasets are pulled when wanted, never streamed"
-    )
-# Ruling 518: a case about `latency` (its feed delay) waits for contract v28.
-# The SDK records each row's age at the edge (`Wants.latency`) and sends no
-# ReportLatency yet.
-for case in suite("data").cases:
-    if case.about == "latency":
-        NOT_PRESENTED[case.name] = "core receives ReportLatency from contract v28, ruling 515"
-
-
-def test_every_case_of_the_data_suite_passes() -> None:
-    report = run("data", PRODUCERS, not_presented=NOT_PRESENTED, instance_id=INSTANCE)
+def test_the_data_suite_passes(tmp_path: Path) -> None:
+    report = run("data", producers(tmp_path), not_presented=NOT_PRESENTED, instance_id="fred")
     assert report.passed, report.failures
+    assert sorted(report.not_presented) == sorted(NOT_PRESENTED)
+    # The plugin's own ten, and the cases every suite holds that the SDK answers.
+    assert len(report.passed_cases) == 10 + len(ANSWERED_BY_SDK)
+    assert report.answered_by_sdk == list(ANSWERED_BY_SDK)

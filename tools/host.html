@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stand-in dashboard</title>
+<script>
+  // The kit the framed page links (?kit=<version>), for the host's chrome too.
+  const kit = `/.meridian/ui/${new URLSearchParams(location.search).get("kit")}/`;
+  document.write(`<link rel="stylesheet" href="${kit}meridian.css"><script src="${kit}meridian.js" data-no-components><\/script>`);
+</script>
+<style>
+  /* The kit gallery's stand-in host (gallery/host.html), its chrome alone:
+   * the plugin's name and id, and the tab row, as the dashboard draws them;
+   * the frame takes the viewport's height under it, the page's budget. */
+  main.host { display: flex; flex-direction: column; height: 100vh; }
+  main.host > * { flex: none; }
+  #plugin { display: block; width: 100%; flex: 1 1 0; min-height: 8rem; border: 0; }
+  .host-title { display: flex; align-items: center; min-height: 2.5rem; }
+</style>
+</head>
+<body>
+<main class="page wide host">
+  <header class="page-head"><div class="host-title"><h1>FRED</h1></div><p><span class="faint mono">fred</span></p></header>
+  <nav class="tabs" aria-label="The plugin's tabs"><a class="tab" href="#summary">Summary</a><a class="tab" href="#settings">Settings</a><a class="tab on" aria-current="page" href="#page">Page</a></nav>
+  <iframe id="plugin" title="The plugin's page, framed"></iframe>
+</main>
+<script>
+  const page = new URLSearchParams(location.search).get("page");
+  const frame = document.getElementById("plugin");
+  const src = new URL(page, location.href);
+  src.searchParams.set("om-framed", "1");
+  frame.src = src.href;
+  frame.addEventListener("load", () => frame.contentWindow.postMessage(
+    { type: "meridian:theme", version: 3, scheme: "default", mode: "light", direction: "green-up", framed: true },
+    location.origin));
+</script>
+</body>
+</html>

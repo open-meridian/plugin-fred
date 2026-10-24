@@ -1,1 +1,103 @@
+{#- Datasets, at admin: the data role's (meridian/roles/data/datasets.html),
+    its notices and sections in its order and words, as tabs so the page fits
+    one screen, one shown at a time (`?view=`): "Served" (with "Lag" as a
+    column, the median published-minus-valid time, and the role's
+    "Subjects" under it), "Wants" (searched and paged), then FRED's:
+    "Records" (each rate and curve and its record, or why none), "FRED
+    series" (each series' copyright class, dataset and class changes,
+    searched and paged) and "Terms", the notice and citation FRED's terms ask
+    for (the spec's §5). The role's content is drawn here rather than at its
+    blocks for the tabs alone; nothing is renamed or reordered. No rate:
+    rates are the reading roles'. -#}
 {% extends "meridian/roles/data/datasets.html" %}
+{% import "meridian/kit.html" as kit %}
+{% import "meridian/roles/_rows.html" as om %}
+{% block status %}{{ kit.status({"state": state[0], "label": state[1], "detail": state[2], "at": checked_at, "at_label": "Last checked"}) }}{% endblock %}
+{% block content %}
+{% if not data.wants and view in ("served", "wants") %}
+{% if caller.deployment_admin %}
+{{ om.next_step("No wants yet", "Nothing reads these datasets until a deployment admin licenses them and entitles a plugin on", "data-sources", "Data sources") }}
+{% else %}
+{{ om.next_step("No wants yet", "Nothing reads these datasets until a deployment admin licenses them and entitles a plugin on Data sources. Ask a deployment admin to license them.") }}
+{% endif %}
+{% endif %}
+{% if data.unread %}<div class="notice warn" role="status">FRED stated a value the plugin could not read, not recorded: {{ data.unread|join("; ") }}</div>{% endif %}
+<nav class="tabs" aria-label="Datasets" id="views">
+{% for key, label, count in [("served", "Served", data.served|length), ("wants", "Wants", wants), ("records", "Records", data.records|length), ("series", "FRED series", data.series|length), ("terms", "Terms", none)] %}
+<a class="tab{% if view == key %} on{% endif %}" href="?view={{ key }}"{% if view == key %} aria-current="page"{% endif %}>{{ label }}{% if count is not none %} <span class="count">{{ count }}</span>{% endif %}</a>
+{% endfor %}
+</nav>
+{% if view == "served" %}
+<section class="panel">
+<h2>Served</h2>
+<table class="one-line">
+<thead><tr><th>Dataset</th><th class="wide-only">Data</th><th class="wide-only">Arrives</th><th class="wide-only">Day</th><th>Default terms</th><th class="wide-only">Entitled at the vendor</th><th class="num">Recorded</th><th class="num wide-only">Declined</th><th class="wide-only">Last recorded</th><th class="wide-only">Lag</th><th class="more"><span class="visually-hidden">Details</span></th></tr></thead><tbody>
+{% for row in data.served %}
+{% set lag = data.lag|selectattr("dataset", "equalto", row.dataset)|first %}
+<tr><td><code>{{ row.dataset }}</code></td><td class="wide-only">{{ row.data }}</td><td class="wide-only">{{ row.arrives }}</td><td class="wide-only">{{ row.day }}</td><td>{{ row.default_terms }} <span class="hint">{{ "Licensed" if row.licensed else "Not licensed yet" }}</span></td><td class="wide-only">{{ row.entitled_at_vendor }}</td><td class="num">{{ row.recorded }}</td><td class="num wide-only">{{ row.declined }}</td><td class="wide-only">{{ row.last_recorded or "None yet" }}</td><td class="wide-only">{{ lag.median if lag and lag.rates else "None yet" }}</td>
+<td class="more"><details class="row-detail" name="served"><summary aria-label="Details of {{ row.dataset }}">…</summary><div class="row-detail-pop"><h3>{{ row.dataset }}</h3><dl><dt>Data</dt><dd>{{ row.data }}</dd><dt>Arrives</dt><dd>{{ row.arrives }}</dd><dt>Day</dt><dd>{{ row.day }}</dd><dt>Default terms</dt><dd>{{ row.default_terms }}; {{ "Licensed" if row.licensed else "Not licensed yet" }}</dd><dt>Entitled at the vendor</dt><dd>{{ row.entitled_at_vendor }}</dd><dt>Recorded</dt><dd>{{ row.recorded }}</dd><dt>Declined</dt><dd>{{ row.declined }}</dd><dt>Last recorded</dt><dd>{{ row.last_recorded or "None yet" }}</dd><dt>Lag</dt><dd>{{ lag.said if lag else "None yet" }}</dd></dl></div></details></td></tr>
+{% endfor %}
+</tbody></table>
+</section>
+<section class="panel">
+<h2>Subjects</h2>
+<p>The deployment {{ "lets" if data.reads_instruments else "does not let" }} this plugin read an instrument's record.</p>
+</section>
+{% elif view == "wants" %}
+<section class="panel">
+<h2>Wants</h2>
+{% if wants > data.wants|length %}<p class="muted">The latest {{ data.wants|length }} of {{ wants }} wants are shown.</p>{% endif %}
+{% if data.wants %}
+<om-pager search="Search wants"><table class="one-line"><thead><tr><th>Dataset</th><th>Asked</th><th class="num">Subjects</th><th class="num wide-only">Recorded</th><th class="num wide-only">Declined</th><th>State</th></tr></thead><tbody>
+{% for want in data.wants %}
+<tr><td><code>{{ want.dataset }}</code></td><td>{{ want.asked }}</td><td class="num">{{ want.subjects }}</td><td class="num wide-only">{{ want.recorded }}</td><td class="num wide-only">{{ want.declined }}</td><td>{{ want.state }}</td></tr>
+{% endfor %}
+</tbody></table></om-pager>
+{% else %}
+<div class="empty-state"><strong>No wants yet</strong></div>
+{% endif %}
+</section>
+{% elif view == "records" %}
+<section class="panel">
+<h2>Records</h2>
+<om-pager>
+<table class="one-line">
+<thead><tr><th>Record</th><th class="wide-only">Type</th><th class="num wide-only">Series</th><th>Instrument</th><th class="more"><span class="visually-hidden">Details</span></th></tr></thead>
+<tbody>
+{% for r in data.records %}
+<tr data-record="{{ r.name }}"><td>{{ r.name }}</td><td class="wide-only">{{ r.instrument_type }}</td><td class="num wide-only">{{ r.series|length }}</td><td>{% if r.instrument_id %}<code>{{ r.instrument_id }}</code>{% elif r.miss %}<span class="badge warn">{{ r.miss }}</span>{% else %}<span class="muted">Not resolved yet</span>{% endif %}</td><td class="more"><details class="row-detail" name="records"><summary aria-label="Details of {{ r.name }}">…</summary><div class="row-detail-pop"><h3>{{ r.name }}</h3><dl><dt>What it is</dt><dd>{{ r.description }}, a {{ r.instrument_type }} the platform seeds</dd><dt>Series recorded against it</dt><dd>{{ r.series|join(", ") }}</dd><dt>The deployment's record</dt><dd>{% if r.instrument_id %}<code>{{ r.instrument_id }}</code>{% elif r.miss %}None: {{ r.miss }}, reported missing; its rates wait until it is held{% else %}Not resolved yet: it is, the first time one of its series is read{% endif %}</dd></dl></div></details></td></tr>
+{% endfor %}
+</tbody>
+</table>
+</om-pager>
+</section>
+{% elif view == "series" %}
+<section class="panel">
+<h2>FRED series</h2>
+<form class="filters" method="get" role="search">
+<input type="hidden" name="view" value="series">
+<input type="search" name="q" value="{{ query }}" placeholder="Search series" aria-label="Search series by ID, record or title">
+<button>Search</button>{% if query %} <a href="?view=series">Clear</a>{% endif %}
+<span class="muted">{{ shown|length }} of {{ data.series|length }}</span></form>
+{% if shown %}
+<om-pager>
+<table class="one-line">
+<thead><tr><th>Series</th><th class="wide-only">Of</th><th>Class</th><th class="wide-only">Dataset</th><th class="wide-only">Kept current</th><th class="more"><span class="visually-hidden">Details</span></th></tr></thead>
+<tbody>
+{% for s in shown %}
+<tr data-series="{{ s.series_id }}"><td><code>{{ s.series_id }}</code></td><td class="wide-only">{{ s.of }}</td><td>{% if s.copyright_class %}{{ s.copyright_class }}{% else %}<span class="muted">Not read yet</span>{% endif %}{% if s.changes %} {{ kit.badge("changed", "warn") }}{% endif %}</td><td class="wide-only">{% if s.dataset %}<code>{{ s.dataset }}</code>{% else %}None yet{% endif %}</td><td class="wide-only">{{ "Yes" if s.kept_current else "When wanted" }}</td><td class="more"><details class="row-detail" name="series"><summary aria-label="Details of {{ s.series_id }}">…</summary><div class="row-detail-pop"><h3>{{ s.series_id }}</h3><dl><dt>FRED's title</dt><dd>{{ s.title or "Not read yet" }}</dd><dt>A rate of</dt><dd>{{ s.of }}</dd><dt>Copyright class</dt><dd>{{ s.copyright_class or "Not read yet" }}</dd><dt>Dataset</dt><dd>{{ s.dataset or "None until its class is read" }}</dd><dt>Class changes</dt><dd>{{ s.changes|join("; ") if s.changes else "None seen" }}</dd><dt>Kept current</dt><dd>{{ "Yes" if s.kept_current else "No: fetched when a reader wants it" }}</dd><dt>First observation</dt><dd>{{ s.first_day or "Not read yet" }}</dd><dt>Latest read</dt><dd>{{ s.latest_day or "None yet" }}</dd><dt>FRED last updated it</dt><dd>{{ s.last_updated or "Not read yet" }}</dd><dt>Last error</dt><dd>{{ s.last_error or "None" }}</dd></dl></div></details></td></tr>
+{% endfor %}
+</tbody>
+</table>
+</om-pager>
+{% else %}
+<div class="empty-state"><strong>No series matches "{{ query }}"</strong><p>Search by its FRED ID, the record it is a rate of, or its title.</p></div>
+{% endif %}
+</section>
+{% else %}
+<section class="panel">
+<h2>Terms</h2>
+<p>{{ data.attribution }}</p>
+</section>
+{% endif %}
+{% endblock %}

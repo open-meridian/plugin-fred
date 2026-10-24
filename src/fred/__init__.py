@@ -1,1 +1,1 @@
-"""A Meridian data plugin: a vendor's prices, put into the lake."""
+"""FRED's rate series as an Open Meridian data plugin."""
