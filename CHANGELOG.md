@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0
+
+On open-meridian 0.33.1, contract v28 (plugin-common-v28), on core v28's
+harness.
+
+- **The feed delay, reported** (ruling 518, required again from contract
+  v28): each rate recorded unasked or for a standing want has its age at
+  the edge recorded where it states a published time (`roles.Latency` on
+  the SDK's `Wants`), reported every 10 seconds (`ReportLatency`);
+  `reports-its-feed-delay` is presented on SOFR kept current.
+- **The suite's v28 cases:** option chains, filings and the quality of
+  quotes not presented, the SDK's `RATES_NOT_PRESENTED`.
+- **`meridian plugin migrate`** (to_0_33_0, to_0_33_1): e2e/reader.py's
+  SubjectRefs are `meridian.SubjectRef` (ruling 599).
+- **The pins:** open-meridian 0.33.1 and plugin-python:0.33.1 by tag and
+  digest; core v28's runtime and harness at `8def82a` (chart 0.1.313) by
+  digest; `meridian` 0.1.52 in check.yaml (was 0.1.51).
+- The README's "not released yet" is gone.
+
 ## 0.1.0
 
 The first version: FRED's plugin with the lake's rates slice, on

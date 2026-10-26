@@ -5,9 +5,11 @@ plugin §6 lists them, and the role's cases every data plugin presents.
 
 FRED's rate series are rates, recorded as `Rate` rows (contract v27). The
 cases a rates-only plugin never presents -- every case about a price, a
-trade, a quote or an outcome, and the feed delay until
-core receives ReportLatency (ruling 518) -- are the SDK's
-`RATES_NOT_PRESENTED` (ruling 538), each with why. Beside them this plugin
+trade, a quote or an outcome, and from contract v28 option chains, filings
+and quotes' quality -- are the SDK's `RATES_NOT_PRESENTED` (ruling 538),
+each with why. The feed delay is presented (required again from contract
+v28, ruling 518): each rate kept current has its age at the edge recorded
+and reported. Beside them this plugin
 names four of its own: the settlement calendars' two (its datasets declare
 no calendar: FRED states none for a series, and it never computes a
 settlement date), `two-conventions-one-tenor` (it carries no bill series)
@@ -25,7 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from meridian.plugin.v1 import operations_pb2 as ops
-from meridian.roles.data.testing import RATES_NOT_PRESENTED, Instruments
+from meridian.roles.data.testing import RATES_NOT_PRESENTED, Instruments, feed_delay
 from meridian.suites import ANSWERED_BY_SDK, Recorder, run
 
 from fred.feed import NEW_YORK
@@ -67,6 +69,14 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
             await feed(tmp, recorder, kept=series).check()
 
         return produce
+
+    async def delayed(recorder: Recorder, latency: object) -> None:
+        # Contract v28 (ruling 518): SOFR kept current, each rate recorded
+        # unasked with its age at the edge recorded, then reported.
+        _seeded(recorder)
+        work = feed(tmp, recorder, kept=["SOFR"])
+        work.wants.latency = latency
+        await work.check()
 
     async def two_records(recorder: Recorder) -> None:
         # SOFR's code meets two of the deployment's records.
@@ -137,6 +147,7 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
         await recorder.receive(want_withdrawn=work.on_withdrawn)
 
     return {
+        "reports-its-feed-delay": feed_delay(delayed),
         "an-asset-that-does-not-resolve": two_records,
         "a-subject-declined": declined,
         "a-standing-want-withdrawn": withdrawn,
@@ -154,6 +165,6 @@ def test_the_data_suite_passes(tmp_path: Path) -> None:
     report = run("data", producers(tmp_path), not_presented=NOT_PRESENTED, instance_id="fred")
     assert report.passed, report.failures
     assert sorted(report.not_presented) == sorted(NOT_PRESENTED)
-    # The plugin's own ten, and the cases every suite holds that the SDK answers.
-    assert len(report.passed_cases) == 10 + len(ANSWERED_BY_SDK)
+    # The plugin's own eleven, and the cases every suite holds that the SDK answers.
+    assert len(report.passed_cases) == 11 + len(ANSWERED_BY_SDK)
     assert report.answered_by_sdk == list(ANSWERED_BY_SDK)

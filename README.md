@@ -5,12 +5,12 @@ an Open Meridian plugin that reads the St. Louis Fed's
 [FRED API](https://fred.stlouisfed.org/docs/api/fred/) and puts the rate
 series it carries into a deployment's lake as rates, each against the
 platform's reference record for it. It holds the `data` role, a data plugin.
-This is release 0.1.0, not released yet. How to set it up and use it is in
+This is release 0.2.0. How to set it up and use it is in
 [docs/](docs/README.md); how a plugin like it is built is documented at
 [open-meridian.dev](https://open-meridian.dev).
 
-It is built on the SDK it pins, `open-meridian==0.32.2`, which declares
-contract v27, and records through the SDK's rates helpers
+It is built on the SDK it pins, `open-meridian==0.33.1`, which declares
+contract v28 (its feed delay reported, ruling 518), and records through the SDK's rates helpers
 (`meridian.roles.data.rates`). It is FRED's plugin in meridian-design's
 `spec/a-public-rates-and-filings-data-plugin.md`, with the rates slice
 (§8, stage 1); FRED's macro series follow with the series slice.
