@@ -1,7 +1,7 @@
 # meridian-fred
 
 FRED's interest-rate series as an Open Meridian data plugin, in Python on the
-open-meridian SDK (0.32.2, contract v27). It runs beside a sidecar in a
+open-meridian SDK (0.33.1, contract v28). It runs beside a sidecar in a
 Meridian deployment and puts the rate series it carries into the
 deployment's lake as `Rate` rows, through the SDK's rates helpers
 (`meridian.roles.data.rates`), each against the platform's seeded

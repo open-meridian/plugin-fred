@@ -56,7 +56,7 @@ from zoneinfo import ZoneInfo
 import meridian
 from meridian.operations import Money, Rate
 from meridian.plugin.v1 import operations_pb2 as ops
-from meridian.roles import data
+from meridian.roles import Latency, data
 from meridian.roles.data import rates
 
 from . import api as fred
@@ -183,6 +183,11 @@ class Feed:
         self.kept = tuple(kept)
         clock = lambda: _ns(self.now())  # noqa: E731 - one clock for both
         self.wants = data.Wants(plugin, KEYS, clock_ns=clock)
+        # Contract v28 (ruling 518): each rate recorded unasked or for a
+        # standing want has its age at the edge recorded where it states a
+        # published time, reported every 10 seconds (`__main__`).
+        self.latency = Latency(plugin, clock_ns=clock)
+        self.wants.latency = self.latency
         self.rates = rates.Feed(
             plugin, SOURCE, wants=self.wants, day_zone=DAY_TIME_ZONE, clock_ns=clock
         )
