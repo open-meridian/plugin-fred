@@ -9,7 +9,7 @@ This is release 0.2.0. How to set it up and use it is in
 [docs/](docs/README.md); how a plugin like it is built is documented at
 [open-meridian.dev](https://open-meridian.dev).
 
-It is built on the SDK it pins, `open-meridian==0.33.1`, which declares
+It is built on the SDK it pins, `open-meridian==0.33.4`, which declares
 contract v28 (its feed delay reported, ruling 518), and records through the SDK's rates helpers
 (`meridian.roles.data.rates`). It is FRED's plugin in meridian-design's
 `spec/a-public-rates-and-filings-data-plugin.md`, with the rates slice
