@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fred"
-version = "0.2.0"
+version = "0.2.1"
 description = "FRED's interest-rate series, from the St. Louis Fed's API, into an Open Meridian deployment's lake as rates"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ requires-python = ">=3.11"
 # pick up another. The Dockerfile's base is the same version. FRED's API is
 # read with the standard library: no third-party dependency.
 dependencies = [
-  "open-meridian==0.33.1",
+  "open-meridian==0.33.4",
 ]
 
 [project.urls]
