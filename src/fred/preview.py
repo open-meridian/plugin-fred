@@ -86,17 +86,19 @@ def _recorder() -> Recorder:
 
 async def synthetic_feed() -> Feed:
     """A feed as sample data leaves it, on the recorder."""
-    feed = Feed(_recorder(), SyntheticApi(lambda: AT), RawStore(), now=lambda: AT, kept=KEPT)
+    feed = _recorder().bind(Feed(SyntheticApi(lambda: AT), RawStore(), now=lambda: AT, kept=KEPT))
     await feed.check()
-    await feed.on_want(_want("want-0924", SOFR, "2026-09-24"))
-    await feed.on_want(_want("want-1012", SOFR, "2026-10-12"))
-    await feed.on_want(_want("want-standing", ESTR, dataset="fred:fred_public", standing=True))
+    await feed.on_observations_wanted(_want("want-0924", SOFR, "2026-09-24"))
+    await feed.on_observations_wanted(_want("want-1012", SOFR, "2026-10-12"))
+    await feed.on_observations_wanted(
+        _want("want-standing", ESTR, dataset="fred:fred_public", standing=True)
+    )
     return feed
 
 
 def render(page: str) -> str:
     if page.endswith("-first"):
-        feed = Feed(_recorder(), LiveApi(""), RawStore(), now=lambda: AT)
+        feed = _recorder().bind(Feed(LiveApi(""), RawStore(), now=lambda: AT))
     else:
         feed = asyncio.run(synthetic_feed())
     hold(feed)

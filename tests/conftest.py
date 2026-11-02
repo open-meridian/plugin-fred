@@ -65,14 +65,17 @@ def feed(
     at: datetime = AT,
     keyed: bool = False,
 ) -> Feed:
-    """The plugin's work on the lake and FRED's recorded answers, at `at`."""
-    return Feed(
-        plugin if plugin is not None else lake(),
-        api or SyntheticApi(lambda: at),
-        RawStore(tmp),
-        now=lambda: at,
-        kept=kept,
-        keyed=keyed,
+    """The plugin's work on the lake and FRED's recorded answers, at `at`:
+    its data role class bound to the lake (open-meridian 0.35)."""
+    held = plugin if plugin is not None else lake()
+    return held.bind(
+        Feed(
+            api or SyntheticApi(lambda: at),
+            RawStore(tmp),
+            now=lambda: at,
+            kept=kept,
+            keyed=keyed,
+        )
     )
 
 

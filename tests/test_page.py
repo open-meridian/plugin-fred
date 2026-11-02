@@ -26,8 +26,10 @@ def client(tmp_path: Path) -> PageClient:
 
     async def run() -> None:
         await work.check()
-        await work.on_want(want("w-0924", [record_id(SOFR)], day="2026-09-24", dataset=CITED))
-        await work.on_want(want("w-standing", [record_id(ESTR)], standing=True))
+        await work.on_observations_wanted(
+            want("w-0924", [record_id(SOFR)], day="2026-09-24", dataset=CITED)
+        )
+        await work.on_observations_wanted(want("w-standing", [record_id(ESTR)], standing=True))
 
     asyncio.run(run())
     hold(work)

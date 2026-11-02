@@ -1,7 +1,7 @@
 # meridian-fred
 
 FRED's interest-rate series as an Open Meridian data plugin, in Python on the
-open-meridian SDK (0.33.1, contract v28). It runs beside a sidecar in a
+open-meridian SDK (0.35.1, contract v29). It runs beside a sidecar in a
 Meridian deployment and puts the rate series it carries into the
 deployment's lake as `Rate` rows, through the SDK's rates helpers
 (`meridian.roles.data.rates`), each against the platform's seeded
@@ -31,7 +31,13 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
   standing want's current, hourly, reading observations only where FRED's
   `last_updated` moved; converts each observation to a `Rate` through
   `rates.Feed`; and answers the lake's wants or declines them per subject
-  (W10.7), through the SDK's `meridian.roles.data.Wants`.
+  (W10.7), through the SDK's `meridian.roles.data.Wants`. `Feed` is the
+  data role's class (open-meridian 0.35: each role one class), its acts
+  made on itself; `__main__.py`'s `Lake` adds its lifecycle (the settings
+  applied in `on_settings`, the hourly check, tending, the licences and
+  the feed delay in `run`) and registers it with `meridian.run`. Its tests
+  bind it to the suite's `Recorder` (`recorder.bind(...)`,
+  `recorder.hear(...)`).
 - `src/fred/raw.py` keeps every answer as received in the storage the
   deployment grants (but a restricted series' values), notes the answer
   each rate was first read from, and moves months past their window as the
@@ -146,7 +152,7 @@ running plugin to it: a version registering anything its upload did not
 declare is refused, naming the difference. So:
 
 - declare everything in `Declaration(...)` and call
-  `meridian.connect(declaration=DECLARATION)` alone;
+  `meridian.run(declaration=DECLARATION, roles=[...])` with it alone;
 - keep the interface's port fixed (`PORT`), never read from the
   environment;
 - keep `declaration.py` importing every module that declares a page or a

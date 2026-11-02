@@ -162,34 +162,33 @@ class Failed(Exception):  # noqa: N818 - what an answer was
     """FRED refused or did not answer; its words."""
 
 
-class Feed:
-    """The plugin's work, on its typed operations -- `plugin` is the
-    connected `meridian.Plugin`, or the suite's `Recorder` in its tests --
-    reading FRED, resolving, recording, answering wants."""
+class Feed(data.Role):
+    """The plugin's data role class (open-meridian 0.35: each role one
+    class), its acts made on itself -- registered with `meridian.run`, or
+    bound to the suite's `Recorder` in its tests -- reading FRED, resolving,
+    recording, answering wants."""
 
     def __init__(
         self,
-        plugin: Any,
         api: fred.Api,
         raw: RawStore,
         now: Callable[[], datetime] = fred.utc_now,
         kept: Sequence[str] = (),
         keyed: bool = False,
     ) -> None:
-        self.plugin = plugin
         self.api = api
         self.raw = raw
         self.now = now
         self.kept = tuple(kept)
         clock = lambda: _ns(self.now())  # noqa: E731 - one clock for both
-        self.wants = data.Wants(plugin, KEYS, clock_ns=clock)
+        self.wants = data.Wants(self, KEYS, clock_ns=clock)
         # Contract v28 (ruling 518): each rate recorded unasked or for a
         # standing want has its age at the edge recorded where it states a
         # published time, reported every 10 seconds (`__main__`).
-        self.latency = Latency(plugin, clock_ns=clock)
+        self.latency = Latency(self, clock_ns=clock)
         self.wants.latency = self.latency
         self.rates = rates.Feed(
-            plugin, SOURCE, wants=self.wants, day_zone=DAY_TIME_ZONE, clock_ns=clock
+            self, SOURCE, wants=self.wants, day_zone=DAY_TIME_ZONE, clock_ns=clock
         )
         self.status = Status(mode=api.mode, keyed=keyed, started_at=now())
         for subject in SUBJECTS:
@@ -492,12 +491,14 @@ class Feed:
 
     # ── Wants ───────────────────────────────────────────────────────────
 
-    async def on_want(self, heard: meridian.Heard[ops.ObservationsWantedEvent]) -> None:
+    async def on_observations_wanted(
+        self, heard: meridian.Heard[ops.ObservationsWantedEvent]
+    ) -> None:
         """Record what the lake wants of one of the plugin's datasets, or
         decline it (the SDK's `Wants.hear`, answered by `answer`)."""
         await self.wants.hear(heard, self.answer)
 
-    async def on_withdrawn(self, heard: meridian.Heard[ops.WantWithdrawnEvent]) -> None:
+    async def on_want_withdrawn(self, heard: meridian.Heard[ops.WantWithdrawnEvent]) -> None:
         """A standing want withdrawn: no longer kept current."""
         self.wants.withdraw(heard.message.want_id)
         log.info("standing want %s withdrawn", heard.message.want_id)
