@@ -29,7 +29,7 @@ def rows(plugin: Lake) -> list[Any]:
 def run(work: Feed, *heard: Any) -> None:
     async def go() -> None:
         for each in heard:
-            await work.on_want(each)
+            await work.on_observations_wanted(each)
 
     asyncio.run(go())
 
@@ -208,7 +208,7 @@ def test_a_standing_want_is_kept_current_until_withdrawn(tmp_path: Path) -> None
     assert plugin.on("RecordRates")[0].want_id == "w-s"
 
     async def withdraw() -> None:
-        await work.on_withdrawn(
+        await work.on_want_withdrawn(
             Heard(row="WantWithdrawn", message=ops.WantWithdrawnEvent(want_id="w-s"))
         )
 

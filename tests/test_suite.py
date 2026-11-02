@@ -93,7 +93,7 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
         for n in (1, 2):
             asked = want(f"w-{n}", [sofr], day="2026-10-22", dataset=CITED).message
             recorder.answer("ObservationsWanted", lambda _, held=asked: held)  # type: ignore[misc]
-            await recorder.receive(observations_wanted=work.on_want)
+            await recorder.hear(work)
             api.revised = True
 
     def the_curve(*days: str) -> Callable[[Recorder], Awaitable[None]]:
@@ -112,7 +112,7 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
                 message.valid_from_ns = int(start.timestamp()) * 10**9
                 message.valid_until_ns = int(end.timestamp()) * 10**9
             recorder.answer("ObservationsWanted", lambda _: message)
-            await recorder.receive(observations_wanted=work.on_want)
+            await recorder.hear(work)
             sent = [r for b in recorder.on("RecordRates") for r in b.rates]
             on_30th = {
                 (r.tenor.count, r.tenor.unit) for r in sent if r.meta.business_date == "2001-07-30"
@@ -135,7 +135,7 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
         work = feed(tmp, recorder)
         asked = want("w-2", ["INS-NOT-CARRIED"], day="2026-10-21").message
         recorder.answer("ObservationsWanted", lambda _: asked)
-        await recorder.receive(observations_wanted=work.on_want)
+        await recorder.hear(work)
 
     async def withdrawn(recorder: Recorder) -> None:
         _seeded(recorder)
@@ -144,7 +144,7 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
             "WantWithdrawn",
             lambda _: ops.WantWithdrawnEvent(want_id="w-standing", dataset=PUBLIC),
         )
-        await recorder.receive(want_withdrawn=work.on_withdrawn)
+        await recorder.hear(work)
 
     return {
         "reports-its-feed-delay": feed_delay(delayed),

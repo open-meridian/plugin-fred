@@ -5,15 +5,17 @@ series it carries recorded as `Rate` rows against the platform's referential
 records -- the New York Fed's reference rates, the FOMC's target range,
 €STR and Treasury's par curves -- under one dataset per copyright class.
 
-It connects to the sidecar it is launched beside with its catalogue, its
-storage and its settings (declaration.py), serves its two pages (page.py),
-hears what the lake wants of it, and reads the series kept current at start
-and every hour, recording what FRED changed (feed.py). What FRED answered is
-kept in the storage the deployment grants (raw.py), and moved past its
-window as the settings say. It reads which of its datasets a deployment
-admin has licensed, on start and every minute, and reports the data role's
-figures on its heartbeat. It holds nothing else: a restart reads FRED again,
-and the lake answers what it recorded before unchanged.
+It runs its data role class, `Lake` (feed.py's `Feed`, with its lifecycle
+here), with `meridian.run` on the sidecar it is launched beside, declaring
+its catalogue, its storage and its settings (declaration.py); `meridian.run`
+delivers the settings, serves its two pages (page.py), hands it what the lake
+wants of it, and sets the data role's figures on each heartbeat. It reads the
+series kept current at start and every hour, recording what FRED changed
+(feed.py). What FRED answered is kept in the storage the deployment grants
+(raw.py), and moved past its window as the settings say. It reads which of
+its datasets a deployment admin has licensed, on start and every minute. It
+holds nothing else: a restart reads FRED again, and the lake answers what it
+recorded before unchanged.
 
 Everything it says to the deployment goes through the sidecar; everything it
 reads comes from FRED, with the key the deployment's Settings hold, or with
@@ -25,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import signal
+from typing import Any
 
 import meridian
 
@@ -40,121 +42,87 @@ log = logging.getLogger("fred")
 
 #: How often the series kept current are checked, in seconds: hourly.
 CHECK_SECONDS = 3600
-#: How long before a broken settings stream is asked again, in seconds.
-RETRY_SECONDS = 5
 #: How often storage is tended past its window, in seconds: daily.
 TEND_SECONDS = 86_400
-#: How often the datasets' licences are read again, and the figures set.
+#: How often the datasets' licences are read again.
 LICENCES_SECONDS = 60
 
 
-async def watch_settings(
-    plugin: meridian.Plugin, feed: Feed, held: list[Config], wake: asyncio.Event
-) -> None:
-    """Apply each delivery of the settings: the key, the series kept current,
-    sample data on or off, and the answers' window, tended at once. A stream
-    that breaks is asked again after a pause, and delivers the settings
-    whole."""
-    while True:
-        try:
-            async for delivered in plugin.settings():
-                config = config_from(delivered.values)
-                held[0] = config
-                feed.use(api(config.sample_data, config.key), config.series, bool(config.key))
-                wake.set()
-                await feed.raw.tend(plugin, config.window_days, config.past_window, feed.now())
-        except Exception as broken:  # noqa: BLE001 - a broken stream, asked again
-            log.warning("the settings were not delivered (%s); asking again", type(broken).__name__)
-        await asyncio.sleep(RETRY_SECONDS)
+class Lake(Feed):
+    """The data role's class with its lifecycle (open-meridian 0.35, rulings
+    1004, 1005, 1009 to 1023): `meridian.run` delivers each settings to
+    `on_settings` -- the first before anything is heard -- and starts `run`,
+    again after a backoff should it fail."""
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.config = Config()
+        self.wake = asyncio.Event()
 
-async def check(feed: Feed, wake: asyncio.Event) -> None:
-    """Read the series kept current once the settings have come, then
-    hourly, or at once when the settings change."""
-    await wake.wait()
-    while True:
-        wake.clear()
-        try:
-            await feed.check()
-        except meridian.MeridianError as failed:
-            # The sidecar refused something a recording needed; say so and
-            # keep the schedule rather than spin.
-            feed.status.error = f"the deployment refused a recording: {failed}"
-            log.warning("this check stopped: %s", failed)
-        with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(wake.wait(), timeout=CHECK_SECONDS)
+    async def on_settings(self, delivered: Any) -> None:
+        """Apply each delivery of the settings: the key, the series kept
+        current, sample data on or off, and the answers' window, tended at
+        once."""
+        config = config_from(delivered.values)
+        self.config = config
+        self.use(api(config.sample_data, config.key), config.series, bool(config.key))
+        self.wake.set()
+        await self.raw.tend(self.plugin, config.window_days, config.past_window, self.now())
 
+    async def run(self) -> None:
+        """The series kept current checked, storage tended, the licences
+        read, and the feed delay reported (contract v28, ReportLatency)."""
+        await asyncio.gather(self._check(), self._tend(), self._licences(), self.latency.run())
 
-async def tend(plugin: meridian.Plugin, feed: Feed, held: list[Config]) -> None:
-    while True:
-        await asyncio.sleep(TEND_SECONDS)
-        config = held[0]
-        await feed.raw.tend(plugin, config.window_days, config.past_window, feed.now())
+    async def _check(self) -> None:
+        """Read the series kept current at once, then hourly, or at once
+        when the settings change."""
+        while True:
+            self.wake.clear()
+            try:
+                await self.check()
+            except meridian.MeridianError as failed:
+                # The sidecar refused something a recording needed; say so and
+                # keep the schedule rather than spin.
+                self.status.error = f"the deployment refused a recording: {failed}"
+                log.warning("this check stopped: %s", failed)
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.wake.wait(), timeout=CHECK_SECONDS)
 
+    async def _tend(self) -> None:
+        while True:
+            await asyncio.sleep(TEND_SECONDS)
+            config = self.config
+            await self.raw.tend(self.plugin, config.window_days, config.past_window, self.now())
 
-async def licences(plugin: meridian.Plugin, feed: Feed) -> None:
-    """Its own declared datasets' licences (contract v20, W10.9), read on
-    start and every minute, for the Datasets page; and the data role's
-    figures, set for the next heartbeat."""
-    while True:
-        try:
-            await feed.wants.read_licences()
-        except meridian.MeridianError as failed:
-            log.warning("the datasets' licences were not read this time: %s", failed)
-        plugin.figures = figures(feed.status, feed)
-        await asyncio.sleep(LICENCES_SECONDS)
-
-
-def _said(task: asyncio.Task[None]) -> None:
-    """A task that ended on an error says so, rather than ending unseen."""
-    if not task.cancelled() and task.exception() is not None:
-        log.error("%s stopped", task.get_name(), exc_info=task.exception())
-
-
-async def run() -> None:
-    stopped = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for stop in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(stop, stopped.set)
-
-    # The version's whole declaration (declaration.py): its settings, its
-    # pages with the levels each serves and their tools, and its documentation.
-    async with await meridian.connect(declaration=DECLARATION) as plugin:
-        log.info("registered as %s, roles %s", plugin.identity.instance_id, plugin.identity.roles)
-        feed = Feed(plugin, api(False, ""), RawStore())
-        hold(feed)
-        held = [Config()]
-        wake = asyncio.Event()
-        server = pages.serve(plugin, PORT)
-        log.info("serving its pages on 127.0.0.1:%d", PORT)
-        tasks = [
-            asyncio.create_task(
-                plugin.receive(observations_wanted=feed.on_want, want_withdrawn=feed.on_withdrawn)
-            ),
-            asyncio.create_task(watch_settings(plugin, feed, held, wake)),
-            asyncio.create_task(check(feed, wake)),
-            asyncio.create_task(tend(plugin, feed, held)),
-            asyncio.create_task(licences(plugin, feed)),
-            # Contract v28: the feed delay, reported (ReportLatency).
-            asyncio.create_task(feed.latency.run()),
-        ]
-        for task in tasks:
-            task.add_done_callback(_said)
-        await stopped.wait()
-        log.info("stopping")
-        for task in tasks:
-            task.cancel()
-        for task in tasks:
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-        server.shutdown()
+    async def _licences(self) -> None:
+        """Its own declared datasets' licences (contract v20, W10.9), read on
+        start and every minute, for the Datasets page."""
+        while True:
+            try:
+                await self.wants.read_licences()
+            except meridian.MeridianError as failed:
+                log.warning("the datasets' licences were not read this time: %s", failed)
+            await asyncio.sleep(LICENCES_SECONDS)
 
 
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    asyncio.run(run())
+    lake = Lake(api(False, ""), RawStore())
+    hold(lake)
+    # The version's whole declaration (declaration.py): its settings, its
+    # pages with the levels each serves and their tools, and its
+    # documentation.
+    meridian.run(
+        declaration=DECLARATION,
+        roles=[lake],
+        pages=pages,
+        port=PORT,
+        on_settings=lake.on_settings,
+        figures=lambda: figures(lake.status, lake),
+    )
 
 
 if __name__ == "__main__":
