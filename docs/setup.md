@@ -31,16 +31,18 @@ In the dashboard's Settings form:
 
 On the deployment's **Data sources** page (deployment admins):
 
-1. **License each dataset.** Each class has its own defaults:
-   - `<instance>:fred_public` (public domain): kept, derived use and
-     display;
-   - `<instance>:fred_cited` (copyrighted, citation required): kept, derived
-     use and display, citing each series' source;
+1. **License each dataset.** Each describes FRED's terms and its class's
+   in words, and declares no licence:
+   - `<instance>:fred_public` (public domain, a citation requested);
+   - `<instance>:fred_cited` (copyrighted, citation required; beyond
+     personal use, the publisher's permission);
    - `<instance>:fred_restricted` (pre-approval required): served when
-     wanted, never kept. This version carries no series of this class, but a
-     series that FRED reclassifies moves here.
+     wanted, never kept, suits it without the publisher's permission. This
+     version carries no series of this class, but a series that FRED
+     reclassifies moves here.
 
-   Confirm each default or set your own, with a note saying why. FRED's
+   Set each licence, with a note saying why; until one is set, the lake
+   keeps the rows and reads every use right restrictively. FRED's
    notice and the citation belong in the note until the licence carries
    them.
 2. **Entitle** each plugin that reads rates.

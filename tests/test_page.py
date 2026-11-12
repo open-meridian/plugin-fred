@@ -76,7 +76,7 @@ def test_datasets_lists_the_three_datasets_records_and_series(client: PageClient
     assert "w-standing" not in text and "Kept current" in wants
     for dataset in ("fred:fred_public", "fred:fred_cited", "fred:fred_restricted"):
         assert dataset in text
-    assert "served, not kept; no derived use; display" in text
+    assert "require pre-approval" in text, "each class's terms in words (ruling 1032)"
     text = client.get(DATASETS, "admin", view="records").text
     assert text.count("<tr data-record=") == len(SUBJECTS) and "<tr data-series=" not in text
     text = client.get(DATASETS, "admin", view="series").text

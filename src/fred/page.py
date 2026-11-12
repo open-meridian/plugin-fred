@@ -65,8 +65,7 @@ VIEWS = ("served", "wants", "records", "series", "terms")
 #: How many wants the Datasets tab lists; read_datasets answers every one held.
 SHOWN_WANTS = 3
 #: What FRED's terms ask be said, and each class's citation (§7), on the
-#: Terms tab: the licence's attribution fields are held until core v27
-#: accepts them at registration (declared.py).
+#: Terms tab, beside each dataset's terms in words (declared.TERMS).
 ATTRIBUTION = (
     "This product uses the FRED® API but is not endorsed or certified by the Federal "
     "Reserve Bank of St. Louis. Cite each series' source as FRED's suggested citation "
@@ -243,12 +242,7 @@ def datasets_read(status: Status, feed: Feed | None) -> records.DatasetsRead:
     mode = _mode(status)
     entitled = "No: no key set" if mode == "No key" else "Yes: every series FRED publishes"
     served = data.served(CATALOGUE, instance, feed.wants if feed is not None else None, entitled)
-    terms = {
-        "fred_public": "kept, derived use, display; FRED's notice",
-        "fred_cited": "kept, derived use, display; cite the source",
-        "fred_restricted": "served, not kept; no derived use; display",
-    }
-    served = [replace(s, default_terms=terms[s.dataset.partition(":")[2]]) for s in served]
+    # Each row's terms are its class's own words (contract 30, ruling 1032).
     return records.DatasetsRead(
         served=served,
         wants=list(data.want_rows(feed.wants)) if feed is not None else [],

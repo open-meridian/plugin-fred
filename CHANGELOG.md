@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0
+
+On open-meridian 0.36.0, contract 30, on core aae501d's harness (contract v30,
+chart 0.1.538).
+
+- **FRED's terms in words, by class** (ruling 1032): `licence_default` is
+  gone from the contract. `meridian plugin migrate --to 0.36.0` could not
+  read the licences (module-level names handed through `_dataset`), so they
+  were written by hand: each dataset describes FRED's API terms (free key;
+  the not-endorsed notice; no replicating FRED's service) and its copyright
+  class's (`declared.TERMS`): public domain, a citation requested;
+  copyrighted, citation required, the owner's permission beyond personal
+  use; pre-approval, the owner's permission to reproduce. The Datasets page
+  draws each class's own words in place of its fixed defaults. The plugin
+  declares no licence: until a deployment admin sets one on Data sources,
+  the lake keeps the rows and reads every use right restrictively --
+  `fred_restricted` was served, never kept, by default, and is now the
+  admin's to license so.
+- **How a gap is recovered** (W10.14): all three `backfill` -- FRED serves
+  each series' history. No sessions calendar, no `most_shards`.
+- **Pins**: open-meridian 0.36.0 and its base by digest; meridian 0.1.60 in
+  the check workflow; core's runtime and harness at `aae501d`, by digest.
+
 ## 0.3.0
 
 On open-meridian 0.35.2, contract v29 (rulings 1001 to 1005 and 1009 to 1023:
