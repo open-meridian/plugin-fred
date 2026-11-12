@@ -18,6 +18,9 @@ chart 0.1.538).
   the lake keeps the rows and reads every use right restrictively --
   `fred_restricted` was served, never kept, by default, and is now the
   admin's to license so.
+- **Datasets' Served table** shows each dataset's licence in its row and its
+  terms in words in the row's details ("Terms and pricing"), so each row
+  stays one line at 375 px.
 - **How a gap is recovered** (W10.14): all three `backfill` -- FRED serves
   each series' history. No sessions calendar, no `most_shards`.
 - **Pins**: open-meridian 0.36.0 and its base by digest; meridian 0.1.60 in
