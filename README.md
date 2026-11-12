@@ -5,12 +5,13 @@ an Open Meridian plugin that reads the St. Louis Fed's
 [FRED API](https://fred.stlouisfed.org/docs/api/fred/) and puts the rate
 series it carries into a deployment's lake as rates, each against the
 platform's reference record for it. It holds the `data` role, a data plugin.
-This is release 0.3.0. How to set it up and use it is in
+This is release 0.4.0. How to set it up and use it is in
 [docs/](docs/README.md); how a plugin like it is built is documented at
 [open-meridian.dev](https://open-meridian.dev).
 
-It is built on the SDK it pins, `open-meridian==0.35.2`, which declares
-contract v29: its work is one class for its role, registered with
+It is built on the SDK it pins, `open-meridian==0.36.0`, which declares
+contract 30 (each dataset's terms in words and how a gap in it is
+recovered); from contract v29 its work is one class for its role, registered with
 `meridian.run` (each role one class); its feed delay is reported (ruling
 518), and it records through the SDK's rates helpers
 (`meridian.roles.data.rates`). It is FRED's plugin in meridian-design's
@@ -21,11 +22,16 @@ contract v29: its work is one class for its role, registered with
 
 - **Three datasets, one per copyright class** (FRED's `cc` tag):
   `<instance>:fred_public` (public domain), `<instance>:fred_cited`
-  (copyrighted, citation required), both pushed and pulled and kept; and
-  `<instance>:fred_restricted` (pre-approval required), pulled only, served
-  and never kept, three years of history. Each serves `Rate`; New York's
-  day, ending at midnight; no calendar; no venue. A series whose class
-  changes moves dataset.
+  (copyrighted, citation required), both pushed and pulled; and
+  `<instance>:fred_restricted` (pre-approval required), pulled only, three
+  years of history. Each serves `Rate`; New York's day, ending at midnight;
+  no calendar; no venue; a gap asked again of FRED's history (`backfill`).
+  Each describes FRED's terms and its class's in words (contract 30, ruling
+  1032: `declared.TERMS`) and declares no licence: the deployment admin
+  licenses each on Data sources (served, never kept, suits
+  `fred_restricted` without its publisher's permission); until one is set,
+  the lake keeps the rows and reads every use right restrictively. A series
+  whose class changes moves dataset.
 - **Rate series only, each against a seeded record:**
 
   | Record (platform seed) | FRED series | Class |

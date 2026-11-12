@@ -21,23 +21,24 @@ series slice (§8, stage 3); this version declares only what it records.
 - its day New York's, ending at midnight, and no calendar: each series
   follows its publisher's, which FRED does not state (§3: "none");
 - no venue;
-- the licence each class's terms suggest (§7): `fred_public` and
-  `fred_cited` kept, derived use and display; `fred_restricted` served,
-  never kept, derived use internal only, display. A deployment's licence
-  confirms or replaces each default on the Data sources page; the plugin
-  says nothing of whether a deployment meets anyone's terms. FRED's
-  non-endorsement notice, the citation each class asks for and its
-  copyright class are stated on the Datasets page's Terms tab and in
-  docs/terms.md: SDK 0.32.2 writes the licence's attribution fields, but
-  core v27 refuses a registration that sets them until its fix is published
-  (held 2026-10-24), so they come with the next version.
+- its terms and pricing (contract 30, ruling 1032) its class's, in plain
+  words (`TERMS`, by key), and no licence declared: FRED's API terms and
+  notice, then what the class's copyright asks. A deployment's licence, set
+  on the Data sources page, is the one enforced -- an unlicensed dataset is
+  kept with each use right read restrictively, so `fred_restricted`'s
+  words say its publisher's permission is needed to reproduce it; the
+  plugin says nothing of whether a deployment meets anyone's terms. FRED's
+  notice and each class's citation are also on the Datasets page's Terms
+  tab and in docs/terms.md;
+- a gap asked again (`gap_recovery` `backfill`, W10.14): FRED serves each
+  series' history (three years for `fred_restricted`).
 
 **Storage:** FRED's answers (raw.py), archivable, ten years by default.
 """
 
 from __future__ import annotations
 
-from meridian import DatasetDeclaration, DatasetLicence
+from meridian import DatasetDeclaration
 from meridian.declaration import RecordKind
 
 from .classes import DATASETS, PUBLIC, RESTRICTED
@@ -58,13 +59,33 @@ RESTRICTED_HISTORY = 1_095
 DAY_TIME_ZONE = "America/New_York"
 DAY_END_MINUTE = 0
 
-_KEPT = DatasetLicence(kept=True, derived_use_terms="not_restricted", display=True)
-_SERVED = DatasetLicence(kept=False, derived_use_terms="internal_only", display=True)
+#: FRED's terms, in plain words (contract 30, ruling 1032), as docs/terms.md
+#: summarises them; then each copyright class's.
+FRED_TERMS = (
+    "FRED's API, from the Federal Reserve Bank of St. Louis: free, with a free API key. Its "
+    "API terms of use ask for a notice that the product uses the FRED® API but is not "
+    "endorsed or certified by the Federal Reserve Bank of St. Louis, and bar a use that "
+    "replicates FRED's service. Copyright is each series' publisher's."
+)
+TERMS = {
+    FRED_PUBLIC: FRED_TERMS
+    + (" This dataset holds series FRED tags public domain: free to use, a citation requested."),
+    FRED_CITED: FRED_TERMS
+    + (
+        " This dataset holds copyrighted series whose publishers require citation; using one "
+        "beyond personal use needs its owner's permission, which FRED cannot grant (the New "
+        "York Fed's terms for SOFR, EFFR and OBFR)."
+    ),
+    FRED_RESTRICTED: FRED_TERMS
+    + (
+        " This dataset holds copyrighted series whose publishers require pre-approval (ICE "
+        "BofA's): FRED keeps three years of them, and reproducing them needs the owner's "
+        "permission."
+    ),
+}
 
 
-def _dataset(
-    key: str, modes: list[str], history: int, licence: DatasetLicence
-) -> DatasetDeclaration:
+def _dataset(key: str, modes: list[str], history: int) -> DatasetDeclaration:
     return DatasetDeclaration(
         key=key,
         vendor=VENDOR,
@@ -73,16 +94,17 @@ def _dataset(
         modes=modes,
         cadence=CADENCE,
         history=history,
-        licence_default=licence,
+        terms_and_pricing=TERMS[key],
+        gap_recovery="backfill",
         day_time_zone=DAY_TIME_ZONE,
         day_end_minute=DAY_END_MINUTE,
     )
 
 
 CATALOGUE = [
-    _dataset(FRED_PUBLIC, ["push", "pull"], 0, _KEPT),
-    _dataset(FRED_CITED, ["push", "pull"], 0, _KEPT),
-    _dataset(FRED_RESTRICTED, ["pull"], RESTRICTED_HISTORY, _SERVED),
+    _dataset(FRED_PUBLIC, ["push", "pull"], 0),
+    _dataset(FRED_CITED, ["push", "pull"], 0),
+    _dataset(FRED_RESTRICTED, ["pull"], RESTRICTED_HISTORY),
 ]
 
 RESPONSES_KIND = RecordKind(RESPONSES, "Raw responses", window_days=DEFAULT_WINDOW_DAYS)

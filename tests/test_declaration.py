@@ -5,6 +5,7 @@ from __future__ import annotations
 from meridian.plugin.v1 import operations_pb2 as ops
 
 from fred.declaration import DECLARATION
+from fred.declared import FRED_TERMS, TERMS
 
 
 def test_three_datasets_of_rates_one_per_class() -> None:
@@ -24,18 +25,17 @@ def test_three_datasets_of_rates_one_per_class() -> None:
     assert held["fred_public"].history == 0 and held["fred_restricted"].history == 1095
 
 
-def test_each_classes_terms() -> None:
-    held = {d.key: d.licence_default for d in DECLARATION.catalogue}
-    for key in ("fred_public", "fred_cited"):
-        licence = held[key]
-        assert licence is not None and licence.kept and licence.display
-        assert licence.derived_use_terms == "not_restricted" and not licence.personal_use
-    restricted = held["fred_restricted"]
-    assert restricted is not None and not restricted.kept and restricted.display
-    assert restricted.derived_use_terms == "internal_only" and not restricted.derived_use
-    # The attribution fields are held until core accepts them (2026-10-24).
-    for licence in held.values():
-        assert licence is not None and not licence.attribution_text and not licence.copyright_class
+def test_each_classes_terms_in_words_and_a_gap_asked_again() -> None:
+    # Contract 30 (ruling 1032): each class's terms described, no licence.
+    held = {d.key: d for d in DECLARATION.catalogue}
+    for key, dataset in held.items():
+        said = dataset.terms_and_pricing
+        assert said == TERMS[key] and said.startswith(FRED_TERMS) and len(said) <= 2000
+        assert "not endorsed or certified" in said
+        assert dataset.gap_recovery == "backfill" and not dataset.sessions_calendar_id
+    assert "public domain" in TERMS["fred_public"]
+    assert "require citation" in TERMS["fred_cited"]
+    assert "pre-approval" in TERMS["fred_restricted"]
 
 
 def test_the_answers_are_kept_in_storage() -> None:

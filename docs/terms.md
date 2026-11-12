@@ -35,9 +35,9 @@ can change. Not legal advice.
 
 Show FRED's notice, and cite each series as FRED's suggested citation gives
 it: the publisher, the series' title and ID, "retrieved from FRED, Federal
-Reserve Bank of St. Louis". The Datasets page shows the notice. Each dataset's
-default licence declares its class's terms; the attribution belongs in your
-licence's note until the licence carries it.
+Reserve Bank of St. Louis". The Datasets page shows the notice. Each dataset
+describes its class's terms in words and declares no licence; the
+attribution belongs in your licence's note until the licence carries it.
 
 The datasets' licences on your Data sources page are what your deployment
 records; neither the plugin nor this page says whether your use meets
