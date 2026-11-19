@@ -35,7 +35,10 @@ it to the platform's `INS-` record (rulings 545, 547).
    reads it from FRED and records it against the want (3.88); Columbus Day,
    12 October, which FRED states as ".", is declined `source_silent`; and
    TGCR, a seeded record FRED carries no series of, `not_covered`.
-7. `store lake` is e2e/expected.lake.
+7. `store lake` is e2e/expected.lake. From 0.5.0 it holds `miss|fred|4`:
+   the four index records, which the harness's platform does not seed,
+   reported missing when step 6's wants resolve every subject carried, and
+   never minted; a new container (step 8) asks no index, so the count stays.
 8. A new container: it reads the series again and records nothing twice;
    the lake is unchanged, and it reads its datasets' licences on start.
 """
