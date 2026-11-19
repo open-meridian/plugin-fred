@@ -22,7 +22,9 @@ it to the platform's `INS-` record (rulings 545, 547).
    `read_datasets` answer what the pages show, under the data role's names
    -- the key not set, never a value; each record's `INS-` ID -- and core's
    `dashboard__list_datasets` lists the three datasets as the catalogue
-   declares them.
+   declares them, each serving rates and, from 0.5.0, publishers' figures
+   (index levels). The harness's platform seeds no index record, so the
+   four indices are not resolved here and no level is recorded.
 4. Licensed and entitled at the Data sources page: the reader, to
    fred_public and fred_cited.
 5. Read back: SOFR on 22 October from fred_cited, a fixing of 3.90 per cent,
@@ -33,7 +35,10 @@ it to the platform's `INS-` record (rulings 545, 547).
    reads it from FRED and records it against the want (3.88); Columbus Day,
    12 October, which FRED states as ".", is declined `source_silent`; and
    TGCR, a seeded record FRED carries no series of, `not_covered`.
-7. `store lake` is e2e/expected.lake.
+7. `store lake` is e2e/expected.lake. From 0.5.0 it holds `miss|fred|4`:
+   the four index records, which the harness's platform does not seed,
+   reported missing when step 6's wants resolve every subject carried, and
+   never minted; a new container (step 8) asks no index, so the count stays.
 8. A new container: it reads the series again and records nothing twice;
    the lake is unchanged, and it reads its datasets' licences on start.
 """
@@ -234,7 +239,8 @@ def run():
             entry.get("modes") == modes
             and entry.get("day_time_zone") == "America/New_York"
             and entry.get("cadence") == 86400
-            and not entry.get("calendar_id"),
+            and not entry.get("calendar_id")
+            and entry.get("data_types") == ["meridian.v1.Rate", "meridian.v1.DerivedSeries"],
             f"step 3, core lists {name} as declared: {listed.get(name)}",
         )
 

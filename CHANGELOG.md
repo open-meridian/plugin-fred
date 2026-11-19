@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.0
+
+On open-meridian 0.36.0, contract 30 (nothing new in the contract), on core
+aae501d's harness.
+
+- **Index levels as their publishers' figures** (the product owner, items
+  132 and 136, 2026-11-19; ruling 955). Four FRED series -- `SP500`,
+  `DJIA`, `NASDAQCOM` and `VIXCLS` -- each recorded as a `DerivedSeries`
+  named `level`, never a price or a rate: its value an index level (the
+  NASDAQ Composite's base, 1971-02-05 = 100, as FRED's units state it),
+  `published_by` the publisher FRED names (S&P Dow Jones Indices LLC,
+  Nasdaq, Inc., Chicago Board Options Exchange), its rule the publisher's
+  definition, no inputs, against the index's referential record. Each is
+  read, timed, kept and wanted as a rate series is, under its copyright
+  class's dataset: the first three are tagged pre-approval required, so
+  `fred_restricted`, served when wanted, never pushed and never kept in the
+  plugin's storage; the VIX is citation required, `fred_cited`, and can be
+  kept current. A want of a rate and a want of a level are answered apart.
+- **The index records' codes, proposed**: `spdji:SPX`, `spdji:DJI`,
+  `nasdaq:COMP`, `cboe:VIX`, by each administrator's code as a symbol. The
+  platform seeds none yet: until a deployment holds one, its levels wait,
+  reported missing, never minted.
+- **The publishers' notices in the terms** (item 132): `fred_restricted`'s
+  words quote S&P's notice for the S&P 500 as FRED states it, the same for
+  the Dow, and Nasdaq's copyright; `fred_cited`'s quote Cboe's. No licence
+  is declared (ruling 1032): the deployment admin licenses each dataset.
+- **Each dataset declares `meridian.v1.DerivedSeries`** beside
+  `meridian.v1.Rate`, since a series' dataset is its copyright class's.
+- **The data suite** presents `records-a-derived-series` (the VIX's level).
+- **Pages:** Connection's Sources names the three index publishers; the
+  Records tab lists the four index records; FRED series lists the four
+  series. No level on any page.
+- **Sample data** adds the four series' observations from 3 August to 18
+  November 2026, their metadata and copyright tags, read from FRED's public
+  pages and downloads on 2026-11-19.
+
 ## 0.4.0
 
 On open-meridian 0.36.0, contract 30, on core aae501d's harness (contract v30,

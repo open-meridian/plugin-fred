@@ -25,6 +25,21 @@ is not carried; FRED's macro series come with the series slice (stage 3).
   so FRED's point and Treasury's own sit under one subject and tenor, and
   the deployment's source priority chooses between them.
 
+**Index levels** (0.5.0; the product owner, items 132 and 136, 2026-11-19;
+ruling 955). Four headline indices' daily closes -- the S&P 500 (`SP500`),
+the Dow Jones Industrial Average (`DJIA`), the NASDAQ Composite
+(`NASDAQCOM`) and the Cboe Volatility Index (`VIXCLS`) -- each the
+**publisher's figure**, never a price: a `DerivedSeries` named `level`,
+marked `published_by` the publisher FRED names as the series' source, its
+rule the publisher's definition (the index's name, version 1), against the
+index's referential record (`index`). The platform seeds no index record
+yet: each is named here by its administrator's code as a source-scoped
+`symbol` -- `spdji:SPX`, `spdji:DJI`, `nasdaq:COMP`, `cboe:VIX` -- a name
+**proposed** with this version for the platform's seed, and until a
+deployment holds the record its levels wait, reported missing, never
+minted. FRED tags the first three "pre-approval required" (served when
+wanted, never kept or pushed) and the VIX "citation required".
+
 **Every one duplicates its publisher's own plugin** (`plugin-ny-fed`,
 `plugin-fed-board`, `plugin-ecb`, `plugin-us-treasury`), which is the primary
 source (ruling 495): the deployment's source priority puts the publisher's
@@ -45,13 +60,18 @@ from meridian.operations import RateConvention
 from meridian.roles.data import rates
 
 #: The administrators, as the platform's seeded records name them (the
-#: symbol's source), and the publisher FRED states for each series.
+#: symbol's source), and the publisher FRED states for each series. The
+#: index administrators' are proposed (0.5.0): the platform seeds none yet.
 NYFED, FRB, ECB, UST = "nyfed", "frb", "ecb", "ustreasury"
+SPDJI, NASDAQ, CBOE = "spdji", "nasdaq", "cboe"
 PUBLISHERS = {
     NYFED: "Federal Reserve Bank of New York",
     FRB: "Board of Governors of the Federal Reserve System (US)",
     ECB: "European Central Bank",
     UST: "Board of Governors of the Federal Reserve System (US)",
+    SPDJI: "S&P Dow Jones Indices LLC",
+    NASDAQ: "Nasdaq, Inc.",
+    CBOE: "Chicago Board Options Exchange",
 }
 
 INTEREST_RATE, RATE_CURVE, INDEX = "interest_rate", "rate_curve", "index"
@@ -106,10 +126,21 @@ REAL = Subject(
     "Daily Treasury par real yield curve",
 )
 
+#: The indices (0.5.0), each by its administrator's code: proposed names.
+SP500_INDEX = Subject(SPDJI, "SPX", INDEX, "S&P 500")
+DJIA_INDEX = Subject(SPDJI, "DJI", INDEX, "Dow Jones Industrial Average")
+NASDAQ_COMPOSITE = Subject(NASDAQ, "COMP", INDEX, "NASDAQ Composite Index")
+VIX = Subject(CBOE, "VIX", INDEX, "Cboe Volatility Index (VIX)")
+
 SUBJECTS = (
     SOFR, EFFR, OBFR, SOFR_30, SOFR_90, SOFR_180, SOFR_INDEX,
     FOMC_LOWER, FOMC_UPPER, ESTR, PAR, REAL,
+    SP500_INDEX, DJIA_INDEX, NASDAQ_COMPOSITE, VIX,
 )  # fmt: skip
+
+#: An index level's kind: the publisher's figure, a `DerivedSeries` (ruling
+#: 955), and the plugin's name for its series.
+LEVEL = "level"
 
 
 @dataclass(frozen=True)
@@ -126,8 +157,10 @@ class Volume:
 @dataclass(frozen=True)
 class Series:
     """One FRED series this version carries: its subject, what kind of rate
-    it is, its convention, its tenor where it is a curve's point, and the
-    companion series FRED states its percentiles and volume in."""
+    it is -- or `level`, an index's level, its publisher's figure -- its
+    convention, its tenor where it is a curve's point, the companion series
+    FRED states its percentiles and volume in, and for a level the
+    publisher's definition."""
 
     series_id: str
     subject: Subject
@@ -137,6 +170,7 @@ class Series:
     index_base: str = ""
     percentiles: Mapping[int, str] = field(default_factory=dict)
     volume: Volume | None = None
+    definition: str = ""
 
     @property
     def publisher(self) -> str:
@@ -147,6 +181,11 @@ class Series:
         """The companion series' IDs, percentiles first."""
         held = tuple(self.percentiles[p] for p in sorted(self.percentiles))
         return held + ((self.volume.series_id,) if self.volume else ())
+
+    @property
+    def level(self) -> bool:
+        """Whether it is an index's level, recorded as its publisher's figure."""
+        return self.kind == LEVEL
 
     @property
     def point(self) -> str:
@@ -200,6 +239,18 @@ CARRIED: tuple[Series, ...] = (
     ),
     *(Series(s, PAR, "par_yield", BEY, tenor=t) for s, t in _NOMINAL.items()),
     *(Series(s, REAL, "par_yield", BEY, tenor=t) for s, t in _REAL.items()),
+    # The indices' daily closes, each its publisher's figure (0.5.0): an
+    # index level, its base as FRED's units state it.
+    Series("SP500", SP500_INDEX, LEVEL, definition="S&P 500"),
+    Series("DJIA", DJIA_INDEX, LEVEL, definition="Dow Jones Industrial Average"),
+    Series(
+        "NASDAQCOM",
+        NASDAQ_COMPOSITE,
+        LEVEL,
+        index_base="1971-02-05=100",
+        definition="NASDAQ Composite Index",
+    ),
+    Series("VIXCLS", VIX, LEVEL, definition="CBOE Volatility Index: VIX"),
 )
 
 BY_ID: dict[str, Series] = {s.series_id: s for s in CARRIED}

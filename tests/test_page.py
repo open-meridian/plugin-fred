@@ -13,9 +13,9 @@ from meridian.testing import PageClient
 from fred import page as page_module
 from fred.api import LiveApi
 from fred.page import CONNECTION, DATASETS, figures, hold, pages
-from fred.series import CARRIED, ESTR, SOFR, SUBJECTS
+from fred.series import CARRIED, ESTR, SOFR, SP500_INDEX, SUBJECTS
 
-from conftest import CITED, PUBLIC, feed, lake, record_id, want
+from conftest import CITED, PUBLIC, RESTRICTED, feed, lake, record_id, want
 
 KEY = "abcdef0123456789abcdef0123456789"
 
@@ -178,3 +178,37 @@ def test_the_figures_are_the_data_roles_in_its_order(client: PageClient) -> None
     ]
     assert said[0].value == "Sample data" and said[2].value == "Does not stream"
     assert said[1].value == "3 of 3 datasets"
+
+
+def test_the_indices_are_records_and_sources_never_their_levels(tmp_path: Path) -> None:
+    # The VIX kept current and the S&P 500 wanted: their levels in the lake,
+    # never on a page; each index a record, each publisher a source.
+    work = feed(tmp_path, kept=["VIXCLS"])
+
+    async def run() -> None:
+        await work.check()
+        await work.on_observations_wanted(
+            want(
+                "w-spx",
+                [record_id(SP500_INDEX)],
+                day="2026-10-21",
+                dataset=RESTRICTED,
+                data_type="meridian.v1.DerivedSeries",
+            )
+        )
+
+    asyncio.run(run())
+    hold(work)
+    client = PageClient(pages)
+    client.assert_no_account_data("7757.17", "19.03")
+    read = client.call_tool("read_datasets").data
+    records = {r["name"]: r for r in read["records"]}
+    assert records["spdji:SPX"]["series"] == ["SP500"]
+    assert records["cboe:VIX"]["instrument_type"] == "index"
+    series = {s["series_id"]: s for s in read["series"]}
+    assert series["SP500"]["dataset"] == RESTRICTED and series["VIXCLS"]["dataset"] == CITED
+    sources = {s["source"]: s for s in client.call_tool("read_connection").data["sources"]}
+    assert sources["Cboe Volatility Index (VIX) level"]["publisher"] == (
+        "Chicago Board Options Exchange"
+    )
+    assert sources["S&P 500 and Dow Jones Industrial Average levels"]["series"] == 2

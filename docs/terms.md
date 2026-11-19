@@ -27,6 +27,15 @@ can change. Not legal advice.
   before licensing the dataset beyond personal use.
 - ICE BofA series (index yields and spreads) keep only three years on FRED,
   and reproducing them needs ICE's permission. This version carries none.
+- **The indices.** FRED's notes for the S&P 500 (`SP500`) and the Dow Jones
+  Industrial Average (`DJIA`) state S&P Dow Jones Indices LLC's copyright
+  and that reproduction in any form is prohibited except with its prior
+  written permission; FRED keeps ten years of the S&P 500. The NASDAQ
+  Composite (`NASDAQCOM`) is Nasdaq's copyright. All three are tagged
+  pre-approval required, so they are served in `fred_restricted`, when
+  wanted, never kept by the plugin. The VIX (`VIXCLS`) is Cboe's,
+  "reprinted with permission", citation required, in `fred_cited`. Each
+  dataset's terms carry these notices as FRED states them.
 - Each series' own publisher may state terms of its own: the New York Fed's
   reference rates carry its notice and disclaimer, and SOFR and BGCR rest on
   data it licenses.

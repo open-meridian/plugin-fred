@@ -3,7 +3,8 @@
 FRED, the Federal Reserve Bank of St. Louis's economic data service, carries
 hundreds of thousands of series from many publishers. This plugin reads the
 interest-rate series among them through FRED's API and puts them into your
-deployment's lake as rates, where a reporting or pricing plugin reads them.
+deployment's lake as rates, where a reporting or pricing plugin reads them,
+and four headline indices' daily levels as their publishers' figures.
 
 It is a data plugin: its first-use path, its two pages and its Summary figures are every data plugin's, described once on [Using a data plugin](https://open-meridian.dev/how-to/using-a-data-plugin/). These sections cover what is FRED's own.
 
@@ -25,6 +26,22 @@ or curve the platform keeps:
 A curve is one record, and each point a rate with its tenor: FRED's `DGS10`
 is the 10-year point of Treasury's par curve, the same subject and tenor as
 Treasury's own figure.
+
+## Index levels
+
+Four indices' daily closes, each recorded as its publisher's figure, never
+as a price or a rate, against a record for the index:
+
+| Index | FRED series | Publisher |
+|---|---|---|
+| S&P 500 | `SP500` (ten years on FRED) | S&P Dow Jones Indices LLC |
+| Dow Jones Industrial Average | `DJIA` | S&P Dow Jones Indices LLC |
+| NASDAQ Composite | `NASDAQCOM`, 5 February 1971 = 100 | Nasdaq, Inc. |
+| Cboe Volatility Index (VIX) | `VIXCLS` | Chicago Board Options Exchange |
+
+A reader sees each level labelled with whose figure it is. The platform does
+not hold these index records yet: until your deployment does, the Datasets
+page's Records shows each as not held, and its levels wait.
 
 Macro series (GDP, inflation, employment) come in a later version.
 
@@ -58,7 +75,8 @@ shows when.
 
 ## What it does not do
 
-- It shows no rate on its own pages: rates are read by other plugins.
+- It shows no rate or index level on its own pages: they are read by other
+  plugins.
 - It never creates a record. A rate whose record your deployment does not
   hold waits, and is reported missing.
 - It never stores or shows your API key.

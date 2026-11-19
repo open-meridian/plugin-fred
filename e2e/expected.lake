@@ -1,3 +1,4 @@
+miss|fred|4
 row|fred:fred_cited|rate|10|fred:index_level:-:act_360:simple:2026-10-14@INS-01JREF00000000000000000009|1|INS-01JREF00000000000000000009|3||2026-10-14|9|false
 row|fred:fred_cited|rate|11|fred:index_level:-:act_360:simple:2026-10-15@INS-01JREF00000000000000000009|1|INS-01JREF00000000000000000009|3||2026-10-15|10|false
 row|fred:fred_cited|rate|12|fred:index_level:-:act_360:simple:2026-10-16@INS-01JREF00000000000000000009|1|INS-01JREF00000000000000000009|3||2026-10-16|11|false
