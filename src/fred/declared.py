@@ -6,8 +6,12 @@ registers with it, and `meridian plugin upload` reads it from the built image
 **The catalogue: three datasets, one per copyright class** (spec/a-public-
 rates-and-filings-data-plugin §3 and its Q9, the keys approved with the
 batch, 2026-10-14), each serving rates (contract v27's `Rate`) from FRED's
-rate series. Observations, the macro series' kind, join them with the
-series slice (§8, stage 3); this version declares only what it records.
+rate series and, from 0.5.0, publishers' figures (`DerivedSeries` marked
+`published_by`, ruling 955; the product owner, items 132 and 136,
+2026-11-19) from its index series: an index's level lands in its copyright
+class's dataset as any series does, FRED's tags saying which.
+Observations, the macro series' kind, join them with the series slice (§8,
+stage 3); this version declares only what it records.
 
 - `vendor` each series' publisher, as FRED states it (§3: "each series'
   publisher, as the series states it"), and `aggregator` FRED;
@@ -22,7 +26,13 @@ series slice (§8, stage 3); this version declares only what it records.
   follows its publisher's, which FRED does not state (§3: "none");
 - no venue;
 - its terms and pricing (contract 30, ruling 1032) its class's, in plain
-  words (`TERMS`, by key), and no licence declared: FRED's API terms and
+  words (`TERMS`, by key), with each index publisher's notice as FRED
+  states it in the series' notes, recorded faithfully (item 132): S&P's
+  and Nasdaq's in `fred_restricted`, Cboe's in `fred_cited`; and no
+  licence declared (ruling 1032 retired `licence_default`, so "served, not
+  kept" by default is the deployment admin's licence to set; the plugin's
+  part of it holds: a pre-approval series is pulled only, never pushed,
+  and its answers are never kept in the plugin's storage): FRED's API terms and
   notice, then what the class's copyright asks. A deployment's licence, set
   on the Data sources page, is the one enforced -- an unlicensed dataset is
   kept with each use right read restrictively, so `fred_restricted`'s
@@ -52,6 +62,8 @@ KEYS = (FRED_PUBLIC, FRED_CITED, FRED_RESTRICTED)
 VENDOR = "Each series' publisher, as FRED states it"
 AGGREGATOR = "FRED, Federal Reserve Bank of St. Louis"
 RATE = "meridian.v1.Rate"
+#: A publisher's figure (contract v28, amended 2026-10-31, ruling 955).
+DERIVED = "meridian.v1.DerivedSeries"
 #: A day, in seconds.
 CADENCE = 86_400
 #: ICE BofA's series keep three years on FRED (since April 2026).
@@ -75,12 +87,23 @@ TERMS = {
         " This dataset holds copyrighted series whose publishers require citation; using one "
         "beyond personal use needs its owner's permission, which FRED cannot grant (the New "
         "York Fed's terms for SOFR, EFFR and OBFR)."
+        " Its index levels are their publishers' figures. The CBOE Volatility Index: VIX "
+        "(VIXCLS), as FRED's notes state it: \"Copyright, 2016, Chicago Board Options "
+        'Exchange, Inc. Reprinted with permission."'
     ),
     FRED_RESTRICTED: FRED_TERMS
     + (
         " This dataset holds copyrighted series whose publishers require pre-approval (ICE "
         "BofA's): FRED keeps three years of them, and reproducing them needs the owner's "
         "permission."
+        " Its index levels are their publishers' figures, each served when wanted, as FRED's "
+        'notes state them. S&P 500 (SP500), ten years of daily history on FRED: "Copyright '
+        "\u00a9 2016, S&P Dow Jones Indices LLC. All rights reserved. Reproduction of S&P 500 in "
+        "any form is prohibited except with the prior written permission of S&P Dow Jones "
+        'Indices LLC." Dow Jones Industrial Average (DJIA): the same notice for the Dow Jones '
+        "Industrial Average, reproduction prohibited except with S&P Dow Jones Indices LLC's "
+        'prior written permission. NASDAQ Composite Index (NASDAQCOM): "Copyright \u00a9 2016, '
+        'NASDAQ OMX Group, Inc.", tagged by FRED copyrighted, pre-approval required.'
     ),
 }
 
@@ -90,7 +113,7 @@ def _dataset(key: str, modes: list[str], history: int) -> DatasetDeclaration:
         key=key,
         vendor=VENDOR,
         aggregator=AGGREGATOR,
-        data_types=[RATE],
+        data_types=[RATE, DERIVED],
         modes=modes,
         cadence=CADENCE,
         history=history,

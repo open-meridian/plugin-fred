@@ -12,6 +12,14 @@ recorded it, its observations over the last ten days, with its companions'
 nothing is kept between starts but the answers in storage (decisions/028). A
 restricted series is never pushed: its dataset is pulled only.
 
+**Index levels** (0.5.0; ruling 955). An index series' observation is its
+publisher's figure: one `DerivedSeries` row named `level`, its value an
+index level (with its base where FRED's units state one), marked
+`published_by` the publisher FRED names, its rule the publisher's
+definition, no inputs, against the index's record -- never a price, never
+a rate. It is read, timed, kept and wanted as a rate series is, and
+recorded with `RecordDerivedSeries`.
+
 **Rates.** Each observation is one `Rate` row (rates.py of the SDK) against
 its series' subject: a fixing with its percentiles and volume on the same
 day, an average, an index level, or a curve's point with its tenor -- the
@@ -54,16 +62,23 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import meridian
-from meridian.operations import Money, Rate
+from meridian.operations import (
+    DerivedSeries,
+    MeasureRef,
+    Money,
+    ObservationMeta,
+    SourceTime,
+    SubjectRef,
+)
 from meridian.plugin.v1 import operations_pb2 as ops
 from meridian.roles import Latency, data
 from meridian.roles.data import rates
 
 from . import api as fred
 from .classes import RESTRICTED, class_of, dataset_of
-from .declared import DAY_TIME_ZONE, KEYS, RATE, RESTRICTED_HISTORY
+from .declared import DAY_TIME_ZONE, DERIVED, KEYS, RATE, RESTRICTED_HISTORY
 from .raw import First, RawStore
-from .series import CARRIED, SUBJECTS, Series, Subject, carried, of_subject
+from .series import CARRIED, LEVEL, SUBJECTS, Series, Subject, carried, of_subject
 
 log = logging.getLogger("fred")
 
@@ -73,6 +88,11 @@ SOURCE = "fred"
 MOST_DAYS = 366
 #: How many published-minus-valid times are kept for the Lag column.
 LAGS = 2000
+#: The lake's batch of derived values.
+BATCH = 500
+#: The publisher's definition's version: FRED states none, and an index's
+#: definition is its publisher's (ruling 955).
+DEFINITION_VERSION = 1
 NEW_YORK = ZoneInfo(DAY_TIME_ZONE)
 
 
@@ -318,13 +338,14 @@ class Feed(data.Role):
         days: Iterable[date],
         published: tuple[date | None, int],
         keep: bool = True,
-    ) -> list[Rate]:
+    ) -> list[Any]:
         """`series`' rows on `days` under the dataset `key`: one per day it
-        states a value, with the companions' percentiles and volume that day.
+        states a value -- a `Rate`, or an index's level as a `DerivedSeries`
+        -- with the companions' percentiles and volume that day.
         `published` is the series' latest observation's day and FRED's
         `last_updated`, given to that day's row where first read now. A
         series not kept (restricted) names no raw record and notes nothing."""
-        rows: list[Rate] = []
+        rows: list[Any] = []
         main = values.get(series.series_id, {})
         latest, updated = published
         for day in sorted(set(days)):
@@ -349,7 +370,7 @@ class Feed(data.Role):
                     )
             amount = (
                 rates.index_level(value, series.index_base)
-                if series.kind == "index_level"
+                if series.kind in ("index_level", LEVEL)
                 else rates.percent(value)
             )
             given: dict[str, Any] = dict(
@@ -359,13 +380,16 @@ class Feed(data.Role):
                 volume=volume,
                 percentiles=percentiles,
             )
-            row = self.rates.rate(subject_id, key, series.kind, amount, **given)
             said = "|".join(
                 [text.strip(), *(f"{p}:{v}" for p, v in sorted(percentiles.items())),
                  str(volume.amount) if volume else ""]
             )  # fmt: skip
             noted = updated if day == latest else 0
-            row_key = row.meta.row_key if row.meta is not None else ""
+            if series.level:
+                row_key = self.level_key(series, subject_id, day)
+            else:
+                row = self.rates.rate(subject_id, key, series.kind, amount, **given)
+                row_key = row.meta.row_key if row.meta is not None else ""
             if keep:
                 first, fresh = self.raw.first(row_key, day, said, raw_key, noted)
             else:
@@ -375,6 +399,11 @@ class Feed(data.Role):
                 lag = (first.published_ns - _ns(start)) // 10**9
                 held = self.status.lags.setdefault(key, [])
                 held[:] = [*held[-(LAGS - 1) :], lag]
+            if series.level:
+                rows.append(
+                    self.level(series, subject_id, key, day, amount, first.published_ns, first.key)
+                )
+                continue
             rows.append(
                 self.rates.rate(
                     subject_id,
@@ -387,6 +416,51 @@ class Feed(data.Role):
                 )
             )
         return rows
+
+    def level_key(self, series: Series, subject_id: str, day: date) -> str:
+        """An index level's row key: its series and business date, about its
+        record, never its published time -- a revision is its next version."""
+        return f"{series.series_id}:{LEVEL}:{day.isoformat()}@{subject_id}"
+
+    def level(
+        self,
+        series: Series,
+        subject_id: str,
+        key: str,
+        day: date,
+        amount: Any,
+        published_ns: int,
+        raw_key: str,
+    ) -> DerivedSeries:
+        """An index's level on `day` as its publisher's figure (ruling 955):
+        marked whose, the publisher's definition its rule, no inputs."""
+        start = datetime.combine(day, datetime.min.time(), NEW_YORK)
+        return DerivedSeries(
+            meta=ObservationMeta(
+                row_key=self.level_key(series, subject_id, day),
+                subjects=[SubjectRef(entity_id=subject_id)],
+                source=ops.Source(dataset=self.wants.dataset(key)),
+                valid_from_ns=_ns(start),
+                valid_until_ns=_ns(start + timedelta(days=1)),
+                business_date=day.isoformat(),
+                source_times=(
+                    [SourceTime(kind="published", at_ns=published_ns)] if published_ns else []
+                ),
+                raw=self.plugin.raw_record(raw_key[:256]) if raw_key else None,
+            ),
+            series=LEVEL,
+            value=amount,
+            rule=MeasureRef(definition=series.definition, version=DEFINITION_VERSION),
+            published_by=series.publisher,
+        )
+
+    async def record_levels(self, key: str, rows: Sequence[Any]) -> None:
+        """Send index levels in the lake's batches, each answer counted to
+        `key`'s dataset. A derived value answers no want by its ID: the lake
+        holds it under the dataset, where the reader that wanted it reads it."""
+        for start in range(0, len(rows), BATCH):
+            done = await self.record_derived_series(values=list(rows[start : start + BATCH]))
+            self.wants.count(done, key)
 
     async def refresh(
         self,
@@ -439,7 +513,9 @@ class Feed(data.Role):
         self.raw.save_firsts()
         counts = self.wants.counts
         before = (counts.recorded, counts.restated, counts.unchanged)
-        if rows:
+        if rows and series.level:
+            await self.record_levels(key, rows)
+        elif rows:
             await self.rates.record(key, rows, want_id)
         if not want_id:
             held.recorded_at = held.last_updated
@@ -524,7 +600,7 @@ class Feed(data.Role):
     ) -> dict[str, str]:
         """One want answered from FRED: its rates recorded against it, and
         each subject declined, with why."""
-        if key not in KEYS or want.data_type not in ("", RATE):
+        if key not in KEYS or want.data_type not in ("", RATE, DERIVED):
             return {s: "not_covered" for s in subjects}
         if not self.answering:
             return {s: "not_entitled" for s in subjects}
@@ -551,6 +627,9 @@ class Feed(data.Role):
         today = self.today()
         mine: list[Series] = []
         for series in of_subject(subject):
+            # A rate is wanted as a rate, an index's level as a publisher's figure.
+            if want.data_type and (want.data_type == DERIVED) != series.level:
+                continue
             try:
                 if dataset_of(await self.classify(series.series_id)) == key:
                     mine.append(series)

@@ -108,4 +108,5 @@ def test_each_class_is_a_dataset() -> None:
     ]  # fmt: skip
     # Every series carried is classed in the recording.
     api = fred.SyntheticApi()
-    assert {class_of(t) for t in api.tags.values()} == {"public", "cited"}
+    # From 0.5.0 the pre-approval class too: S&P's and Nasdaq's indices.
+    assert {class_of(t) for t in api.tags.values()} == {"public", "cited", "restricted"}

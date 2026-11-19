@@ -7,9 +7,11 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from meridian.operations import as_decimal
 from meridian.plugin.v1 import operations_pb2 as ops
 from meridian.receive import Heard
 from meridian.roles.data.testing import Instruments, Lake
@@ -50,9 +52,27 @@ def seeded(store: Instruments, *left_out: Subject) -> Instruments:
 
 
 def lake(*left_out: Subject) -> Lake:
-    """The lake as a test stands it in, holding the seeded records."""
+    """The lake as a test stands it in, holding the seeded records, and
+    answering a batch of publishers' figures as it answers rates: a row key
+    new recorded, the same value again unchanged, a changed one restated."""
     held = Lake(INSTANCE)
     seeded(held.instruments, *left_out)
+    versions: dict[str, Decimal] = {}
+
+    def derived(params: ops.RecordDerivedSeriesParams) -> ops.RecordDerivedSeriesResult:
+        done = ops.RecordDerivedSeriesResult()
+        for value in params.values:
+            stated, was = as_decimal(value.value.value), versions.get(value.meta.row_key)
+            if was is None:
+                done.recorded += 1
+            elif was == stated:
+                done.unchanged += 1
+            else:
+                done.restated += 1
+            versions[value.meta.row_key] = stated
+        return done
+
+    held.answer("RecordDerivedSeries", derived)
     return held
 
 

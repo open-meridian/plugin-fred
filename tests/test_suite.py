@@ -3,7 +3,10 @@ series present mapped to the plugin's own conversion of FRED's recorded
 answers: the rates slice's cases as spec/a-public-rates-and-filings-data-
 plugin §6 lists them, and the role's cases every data plugin presents.
 
-FRED's rate series are rates, recorded as `Rate` rows (contract v27). The
+FRED's rate series are rates, recorded as `Rate` rows (contract v27); its
+index series, from 0.5.0, are their publishers' figures, each level a
+`DerivedSeries` marked `published_by` (ruling 955), so it presents
+`records-a-derived-series` too, which the SDK's list names. The other
 cases a rates-only plugin never presents -- every case about a price, a
 trade, a quote or an outcome, and from contract v28 option chains, filings
 and quotes' quality -- are the SDK's `RATES_NOT_PRESENTED` (ruling 538),
@@ -35,8 +38,11 @@ from fred.series import PAR, SOFR
 
 from conftest import CITED, PUBLIC, Revised, feed, record_id, seeded, want
 
+#: The SDK's rates-only list, but the publisher's figure FRED's index series are.
+PRESENTED_FROM_0_5_0 = ("records-a-derived-series",)
+
 NOT_PRESENTED = {
-    **RATES_NOT_PRESENTED,
+    **{c: why for c, why in RATES_NOT_PRESENTED.items() if c not in PRESENTED_FROM_0_5_0},
     "reads-a-calendar": "its datasets declare no calendar: FRED states none for a series",
     "asks-for-a-settlement-date": (
         "records each rate as published; never computes a settlement date"
@@ -157,6 +163,8 @@ def producers(tmp: Path) -> dict[str, Callable[[Recorder], Awaitable[None]]]:
         "a-curve-for-a-date": the_curve("2001-07-30", "2001-07-31"),
         "a-tenor-not-published": the_curve("2001-07-30"),
         "an-index-level": kept("SOFRINDEX"),
+        # The VIX, citation required, kept current: its level the publisher's figure.
+        "records-a-derived-series": kept("VIXCLS"),
         "a-curve-point-from-another-source": kept("DGS10"),
     }
 
@@ -165,6 +173,7 @@ def test_the_data_suite_passes(tmp_path: Path) -> None:
     report = run("data", producers(tmp_path), not_presented=NOT_PRESENTED, instance_id="fred")
     assert report.passed, report.failures
     assert sorted(report.not_presented) == sorted(NOT_PRESENTED)
-    # The plugin's own eleven, and the cases every suite holds that the SDK answers.
-    assert len(report.passed_cases) == 11 + len(ANSWERED_BY_SDK)
+    # The plugin's own twelve, and the cases every suite holds that the SDK answers.
+    assert len(report.passed_cases) == 12 + len(ANSWERED_BY_SDK)
+    assert "records-a-derived-series" in report.passed_cases
     assert report.answered_by_sdk == list(ANSWERED_BY_SDK)

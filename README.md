@@ -1,11 +1,12 @@
 # meridian-fred
 
-FRED's interest-rate series for [Open Meridian](https://open-meridian.com):
-an Open Meridian plugin that reads the St. Louis Fed's
-[FRED API](https://fred.stlouisfed.org/docs/api/fred/) and puts the rate
-series it carries into a deployment's lake as rates, each against the
-platform's reference record for it. It holds the `data` role, a data plugin.
-This is release 0.4.0. How to set it up and use it is in
+FRED's interest-rate series and headline index levels for
+[Open Meridian](https://open-meridian.com): an Open Meridian plugin that
+reads the St. Louis Fed's [FRED API](https://fred.stlouisfed.org/docs/api/fred/)
+and puts the rate series it carries into a deployment's lake as rates, and
+four indices' daily levels as their publishers' figures, each against the
+reference record for it. It holds the `data` role, a data plugin.
+This is release 0.5.0. How to set it up and use it is in
 [docs/](docs/README.md); how a plugin like it is built is documented at
 [open-meridian.dev](https://open-meridian.dev).
 
@@ -24,7 +25,8 @@ recovered); from contract v29 its work is one class for its role, registered wit
   `<instance>:fred_public` (public domain), `<instance>:fred_cited`
   (copyrighted, citation required), both pushed and pulled; and
   `<instance>:fred_restricted` (pre-approval required), pulled only, three
-  years of history. Each serves `Rate`; New York's day, ending at midnight;
+  years of history. Each serves `Rate` and, from 0.5.0, `DerivedSeries`
+  (index levels); New York's day, ending at midnight;
   no calendar; no venue; a gap asked again of FRED's history (`backfill`).
   Each describes FRED's terms and its class's in words (contract 30, ruling
   1032: `declared.TERMS`) and declares no licence: the deployment admin
@@ -46,6 +48,23 @@ recovered); from contract v29 its work is one class for its role, registered wit
 
   Each duplicates its publisher's own plugin, the primary source (ruling
   495): the deployment's source priority chooses, FRED after the publisher.
+- **Index levels as their publishers' figures** (0.5.0; ruling 955; the
+  product owner, items 132 and 136): never a price or a rate, each a
+  `DerivedSeries` named `level`, marked `published_by` the publisher FRED
+  names, its rule the publisher's definition, against the index's
+  referential record:
+
+  | Record (proposed; not seeded yet) | FRED series | Class | Publisher |
+  |---|---|---|---|
+  | `spdji:SPX` | `SP500`, ten years on FRED | pre-approval | S&P Dow Jones Indices LLC |
+  | `spdji:DJI` | `DJIA` | pre-approval | S&P Dow Jones Indices LLC |
+  | `nasdaq:COMP` | `NASDAQCOM`, base 5 February 1971 = 100 | pre-approval | Nasdaq, Inc. |
+  | `cboe:VIX` | `VIXCLS` | cited | Chicago Board Options Exchange |
+
+  The platform seeds no index record yet: until a deployment holds one,
+  its levels wait, reported missing, never minted. The pre-approval three
+  are served when wanted, never pushed and never kept in the plugin's
+  storage; each publisher's notice is in its dataset's terms.
 - **The same kind, tenor and convention** the publisher's plugin records:
   a money-market fixing or average actual/360 simple, a par yield
   bond-equivalent; a curve's point against the curve's one record, with
@@ -93,7 +112,8 @@ holiday and a record FRED carries no series of declined; the lake as
 plugin's own conversion, and it passes: the rates slice's cases presented
 but `two-conventions-one-tenor` (no bill series carried), and every case a
 rates-only plugin never presents named with why (`RATES_NOT_PRESENTED`), and
-`records-a-datasets-liveness` (it polls hourly and records no liveness).
+`records-a-datasets-liveness` (it polls hourly and records no liveness);
+from 0.5.0 it presents `records-a-derived-series` too, the VIX's level.
 
 ## The terms, summarised
 
@@ -105,6 +125,12 @@ Not legal advice; read FRED's own words before relying on them.
 - **Copyright is per series**, and a copyrighted series is its publisher's:
   beyond personal use, its owner's permission. Each class is its own dataset
   so each deployment's licence is one decision.
+- **The indices' publishers.** FRED's notes for `SP500` and `DJIA` say
+  reproduction in any form is prohibited except with S&P Dow Jones Indices
+  LLC's prior written permission; `NASDAQCOM` is Nasdaq's copyright,
+  pre-approval required; `VIXCLS` is Cboe's, reprinted with permission,
+  citation required. These are the deployment's to weigh, never a build
+  gate: the plugin records the notices in its datasets' terms.
 
 ## Licence
 

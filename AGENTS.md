@@ -6,7 +6,10 @@ Meridian deployment and puts the rate series it carries into the
 deployment's lake as `Rate` rows, through the SDK's rates helpers
 (`meridian.roles.data.rates`), each against the platform's seeded
 referential record for it: the New York Fed's reference rates, the FOMC's
-target range, €STR and Treasury's par curves. What it may publish and
+target range, €STR and Treasury's par curves; and, from 0.5.0, four
+indices' daily levels (S&P 500, Dow Jones Industrial Average, NASDAQ
+Composite, VIX) as `DerivedSeries` rows marked `published_by`, their
+publishers' figures (ruling 955), each against its index's record. What it may publish and
 subscribe to comes from its one role, `data`, declared in `pyproject.toml`,
 once a deployment admin approves it. It is FRED's plugin in
 meridian-design's `spec/a-public-rates-and-filings-data-plugin.md` (stage 1,
@@ -23,14 +26,17 @@ the rates slice; rulings 343 to 349 made it one plugin per publisher's feed).
 - `src/fred/series.py` is the FRED-ID map (the spec's Q4): each series this
   version carries, its subject (the platform's seeded record, by its
   administrator's code as a source-scoped `symbol`), its kind, convention
-  and tenor, and its companion percentile and volume series.
+  and tenor, and its companion percentile and volume series; for an index
+  (`level`), its publisher's definition. The index records' codes are
+  proposed (the platform seeds none yet).
 - `src/fred/classes.py` reads each series' copyright class from its `cc` tag
   and names its dataset: `fred_public`, `fred_cited`, `fred_restricted`
   (the spec's Q9).
 - `src/fred/feed.py` keeps the `fred_series` setting's series and each
   standing want's current, hourly, reading observations only where FRED's
   `last_updated` moved; converts each observation to a `Rate` through
-  `rates.Feed`; and answers the lake's wants or declines them per subject
+  `rates.Feed`, or an index's to its level, a `DerivedSeries` recorded with
+  `record_derived_series`; and answers the lake's wants or declines them per subject
   (W10.7), through the SDK's `meridian.roles.data.Wants`. `Feed` is the
   data role's class (open-meridian 0.35: each role one class), its acts
   made on itself; `__main__.py`'s `Lake` adds its lifecycle (the settings

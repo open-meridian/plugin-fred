@@ -132,7 +132,7 @@ image:
 	@[ "$$(docker inspect -f '{{.Config.User}}' $(IMAGE))" = "65532" ] \
 		|| { echo "image FAILED: it does not run as 65532" >&2; exit 1; }
 	@docker run --rm --entrypoint python $(IMAGE) -c \
-		"import meridian, fred.__main__, fred.page; from fred.api import SyntheticApi; assert len(SyntheticApi().series) == 42" \
+		"import meridian, fred.__main__, fred.page; from fred.api import SyntheticApi; assert len(SyntheticApi().series) == 46" \
 		|| { echo "image FAILED: it does not import the SDK, itself and its recorded answers" >&2; exit 1; }
 	@[ "$$(docker run --rm --entrypoint sh $(IMAGE) -c 'ls -A /plugin')" = "docs" ] \
 		|| { echo "image FAILED: /plugin holds files beyond docs/; only the installed package and its documentation belong" >&2; exit 1; }

@@ -79,6 +79,9 @@ SOURCES = {
     "frb": "FOMC target range",
     "ecb": "Euro short-term rate (€STR)",
     "ustreasury": "Treasury par yield curves (H.15)",
+    "spdji": "S&P 500 and Dow Jones Industrial Average levels",
+    "nasdaq": "NASDAQ Composite level",
+    "cboe": "Cboe Volatility Index (VIX) level",
 }
 
 _held: dict[str, Feed] = {}

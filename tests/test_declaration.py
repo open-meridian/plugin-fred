@@ -8,11 +8,12 @@ from fred.declaration import DECLARATION
 from fred.declared import FRED_TERMS, TERMS
 
 
-def test_three_datasets_of_rates_one_per_class() -> None:
+def test_three_datasets_of_rates_and_publishers_figures_one_per_class() -> None:
     held = {d.key: d for d in DECLARATION.catalogue}
     assert list(held) == ["fred_public", "fred_cited", "fred_restricted"]
     for dataset in held.values():
-        assert list(dataset.data_types) == ["meridian.v1.Rate"]
+        # Rates, and from 0.5.0 index levels as publishers' figures (ruling 955).
+        assert list(dataset.data_types) == ["meridian.v1.Rate", "meridian.v1.DerivedSeries"]
         assert dataset.vendor == "Each series' publisher, as FRED states it"
         assert dataset.aggregator == "FRED, Federal Reserve Bank of St. Louis"
         assert dataset.day_time_zone == "America/New_York" and dataset.day_end_minute == 0
