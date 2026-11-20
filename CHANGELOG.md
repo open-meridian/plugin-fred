@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+SDK 0.37.0: waits for a lost sidecar; its storage is read once registered,
+on an instance run as shards or with a standby pod the shard's own folder.
+
 ## 0.5.0
 
 On open-meridian 0.36.0, contract 30 (nothing new in the contract), on core
