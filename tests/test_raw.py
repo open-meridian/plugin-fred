@@ -8,7 +8,11 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from fred.api import Fetched, observations_path, series_path
+import pytest
+from meridian import edge
+
+from fred.__main__ import Lake
+from fred.api import Fetched, api, observations_path, series_path
 from fred.raw import RawStore, name_of
 
 from conftest import AT
@@ -66,10 +70,30 @@ def test_months_past_the_window_are_moved(tmp_path: Path) -> None:
             raise AssertionError("not asked")
 
     store = RawStore(tmp_path)
-    store.granted = True
     store.keep(fetched(AT - timedelta(days=400)))
     store.keep(fetched(AT))
     plugin = Plugin()
     done = asyncio.run(store.tend(plugin, 365, "archived", AT))  # type: ignore[arg-type]
     assert done["archived"] == 1 and plugin.archived == ["responses/2025-09"]
     assert plugin.stored[0].record_count == 2
+
+
+async def test_storage_read_once_registered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On an instance run as shards, storage is read once the plugin has
+    registered, from the class's on_start: its shard's own folder, read
+    afresh when it registers again (open-meridian 0.37.0). Built before
+    Register, as `main()` builds it, nothing is read: read then, it raises."""
+    monkeypatch.setenv("MERIDIAN_STORAGE_DIR", str(tmp_path))
+    monkeypatch.setenv("MERIDIAN_PLUGIN_SHARDS", "2")
+    monkeypatch.setattr(edge, "_serving", None)
+    lake = Lake(api(False, ""), RawStore())
+    monkeypatch.setattr(edge, "_serving", (1, 2))
+    await lake.on_start()
+    assert lake.raw.granted
+    assert lake.raw.root == tmp_path / "shard-1"
+    await lake.on_stop()
+    monkeypatch.setattr(edge, "_serving", (0, 2))
+    await lake.on_start()
+    assert lake.raw.root == tmp_path / "shard-0"
