@@ -13,8 +13,9 @@ Launch the plugin and approve its one role, `data` (a data plugin).
 
 In the dashboard's Settings form:
 
-- **FRED API key**: your key. It is never shown again. Without it the
-  plugin asks FRED nothing, and Connection says **No key**.
+- **FRED API key**: your key, required. It is never shown again. Until it
+  is set the plugin's status names it missing, the plugin asks FRED
+  nothing, and Connection says **No key**.
 - **Series kept current**: the series recorded as each is published, one
   per row, each picked from the series this version carries. Empty by
   default: every series here duplicates its publisher's own plugin, so keep
@@ -25,7 +26,7 @@ In the dashboard's Settings form:
   whether they are then archived, kept or deleted.
 - **Sample data**, on a deployment installed for development only: FRED's
   answers recorded on 23 October 2026, committed with the plugin, in place
-  of FRED. No key needed.
+  of FRED. Runs without the key.
 
 ## Its datasets
 
