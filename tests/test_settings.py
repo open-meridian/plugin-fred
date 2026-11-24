@@ -12,7 +12,9 @@ def test_declared_in_the_roles_order() -> None:
     declared = declared_by(DECLARED)
     assert [s.name for s in declared] == ["fred_api_key", "fred_series", "sample_data"]
     key, series, sample = declared
-    assert key.secret and not key.required and key.label == "FRED API key"
+    # FRED answers nothing without a key: a required secret, as every keyed
+    # plugin declares its credentials, so setup names it while it is missing.
+    assert key.secret and key.required and key.label == "FRED API key"
     assert series.kind is list and [c.name for c in series.columns] == ["series"]
     column = series.columns[0]
     assert column.kind == "choice" and column.required

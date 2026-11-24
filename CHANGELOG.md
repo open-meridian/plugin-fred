@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The FRED API key is a required setting, so setup asks for it and names it missing until it is set.
+
 ## 0.5.1
 
 SDK 0.37.0: waits for a lost sidecar; its storage is read once registered,

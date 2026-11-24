@@ -55,6 +55,17 @@ def test_the_texts_uploaded_are_the_files(
     ]
 
 
+def test_the_key_is_declared_a_required_secret(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The upload declares FRED's API key required and secret, so a deployment
+    asks for it at setup and names it missing until it is set."""
+    declared = printed(monkeypatch, capsys)
+    assert isinstance(declared, dict)
+    (key,) = [s for s in declared["settings"] if s["name"] == "fred_api_key"]
+    assert key["required"] is True and key["secret"] is True
+
+
 def test_the_port_is_fixed() -> None:
     interface = version.DECLARATION.interface
     assert interface is not None

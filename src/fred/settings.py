@@ -5,10 +5,13 @@ In the data role's order (spec/plugin-pages-follow-their-role): no
 `environment` (FRED has one site); the credential; the plugin's own; then
 the role's sample data.
 
-- `fred_api_key` -- FRED's free API key, a secret, optional. Without it
+- `fred_api_key` -- FRED's free API key, a required secret, as the data
+  role declares every credential: FRED's API answers nothing without one.
+  While it is missing the sidecar reports the plugin unhealthy, naming it,
   nothing is asked of FRED, and the three datasets show as not entitled at
-  the vendor. Set through the dashboard's Settings form, never read back,
-  displayed, logged or put in a page; an agent never types it.
+  the vendor. Sample data still runs without it. Set through the dashboard's
+  Settings form, never read back, displayed, logged or put in a page; an
+  agent never types it.
 - `fred_series` -- the series to keep current, a typed table: one column,
   the series' FRED ID, each cell one of the series this version carries
   (series.py), so the form checks every cell. Each series' copyright class
@@ -52,6 +55,7 @@ class Declared:
 
     fred_api_key: str = meridian.setting(
         "FRED API key",
+        required=True,
         secret=True,
         description=(
             "Your free FRED API key, from fred.stlouisfed.org (My Account, API Keys). "
@@ -83,7 +87,7 @@ class Declared:
         description=(
             "Serve FRED's answers recorded on 23 October 2026, committed with the plugin, "
             "instead of asking FRED: every series it carries from 3 August to 22 October "
-            "2026. No key needed. Development deployments only."
+            "2026. Runs without the API key. Development deployments only."
         )
     )
 
